@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/android-example.iml" filepath="$PROJECT_DIR$/.idea/modules/android-example.iml" group="example" />
+      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/example.iml" filepath="$PROJECT_DIR$/example.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/example-app.iml" filepath="$PROJECT_DIR$/.idea/modules/app/example-app.iml" group="example/app" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/gtconnect/example-gtconnect.iml" filepath="$PROJECT_DIR$/.idea/modules/gtconnect/example-gtconnect.iml" group="example/gtconnect" />
+      <module fileurl="file://$PROJECT_DIR$/mts/gtconnect.iml" filepath="$PROJECT_DIR$/mts/gtconnect.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/mts/mts.iml" filepath="$PROJECT_DIR$/.idea/modules/mts/mts.iml" group="example/mts" />
+    </modules>
+  </component>
+</project>
