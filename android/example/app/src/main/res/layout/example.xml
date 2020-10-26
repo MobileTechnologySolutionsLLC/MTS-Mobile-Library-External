@@ -1,0 +1,515 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#fff"
+    android:descendantFocusability="beforeDescendants"
+    android:focusableInTouchMode="true">
+
+    <ScrollView
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent" >
+
+        <RelativeLayout
+            android:id="@+id/form_layout"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            >
+
+            <TextView
+                android:id="@+id/version_header"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentTop="true"
+                android:layout_centerHorizontal="true"
+                android:background="#DDD"
+                android:gravity="bottom|center"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:text="MTS Example 1.0 (1)"
+                android:textColor="#444"
+                android:textSize="14dp" />
+
+        <!--Connection Status-->
+
+        <TextView android:id="@+id/connection_status_header"
+            android:layout_below="@+id/version_header"
+            android:layout_centerHorizontal="true"
+            android:layout_height="44dp"
+            android:layout_width="match_parent"
+            android:text="Connection Status"
+            android:textSize="14dp"
+            android:gravity="bottom|left"
+            android:paddingLeft="15dp"
+            android:paddingBottom="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
+
+                <Button android:id="@+id/connection_status_button"
+            android:textAllCaps="false"
+            style="@style/Base.TextAppearance.AppCompat"
+            android:layout_below="@+id/connection_status_header"
+            android:layout_height="60dp"
+            android:layout_width="match_parent"
+            android:text="Start Scanning"
+            android:background="@android:color/transparent"
+            android:textSize="17dp"
+            android:textColor="#000"
+            android:gravity="right|center"
+            android:paddingRight="15dp"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            />
+
+        <TextView android:id="@+id/connection_status_text_view"
+            android:layout_below="@+id/connection_status_header"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:textColor="#000"
+            android:text="Inactive"
+            android:textSize="17dp"
+            android:gravity="left|center"
+            android:paddingLeft="15dp"
+            android:visibility="visible"
+            />
+
+        <TextView android:id="@+id/connection_status_footer"
+            android:layout_below="@+id/connection_status_text_view"
+            android:layout_centerHorizontal="true"
+            android:layout_height="30dp"
+            android:layout_width="match_parent"
+            android:text="States: [NotReady|Inactive|Scanning|Connected]"
+            android:textSize="14dp"
+            android:gravity="top|left"
+            android:paddingLeft="15dp"
+            android:paddingTop="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
+
+
+        <!--RSSI Thresholds-->
+
+        <TextView android:id="@+id/rssi_threshold_header"
+            android:layout_below="@+id/connection_status_footer"
+            android:layout_centerHorizontal="true"
+            android:layout_height="44dp"
+            android:layout_width="match_parent"
+            android:text="RSSI Thresholds"
+            android:textSize="14dp"
+            android:gravity="bottom|left"
+            android:paddingLeft="15dp"
+            android:paddingBottom="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
+
+        <TextView android:id="@+id/autoconnect_label_text_view"
+            android:layout_below="@+id/rssi_threshold_header"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:textColor="#000"
+            android:text="Auto-Connect"
+            android:textSize="17dp"
+            android:gravity="left|center"
+            android:paddingLeft="15dp"
+            android:visibility="visible"
+            />
+
+        <EditText android:id="@+id/autoconnect_threshold_edit_text"
+            android:layout_below="@+id/rssi_threshold_header"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:gravity="center|right"
+            android:layout_centerVertical="true"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:paddingRight="15dp"
+            android:textColor="#000"
+            android:text="-40"
+            android:textSize="17dp"
+            android:hint="- - -"
+            android:visibility="visible"
+            android:inputType="numberSigned"
+            android:maxLength="4"
+            />
+
+        <View android:id="@+id/autoconnect_separator_view"
+            android:layout_below="@+id/autoconnect_threshold_edit_text"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#DDD"
+            android:visibility="visible"/>
+
+        <TextView android:id="@+id/autodisconnect_label_text_view"
+            android:layout_below="@+id/autoconnect_separator_view"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:textColor="#000"
+            android:text="Auto-Disconnect"
+            android:textSize="17dp"
+            android:gravity="left|center"
+            android:paddingLeft="15dp"
+            android:visibility="visible"
+            />
+
+        <EditText android:id="@+id/autodisconnect_threshold_edit_text"
+            android:layout_below="@+id/autoconnect_threshold_edit_text"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:gravity="center|right"
+            android:layout_centerVertical="true"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:paddingRight="15dp"
+            android:textColor="#000"
+            android:text="-70"
+            android:textSize="17dp"
+            android:hint="- - -"
+            android:visibility="visible"
+            android:inputType="numberSigned"
+            android:maxLength="4"
+            />
+
+        <TextView android:id="@+id/rssi_threshold_footer"
+            android:layout_below="@+id/autodisconnect_threshold_edit_text"
+            android:layout_centerHorizontal="true"
+            android:layout_height="30dp"
+            android:layout_width="match_parent"
+            android:text="Range is 0 to -100.  Leave blank to disable."
+            android:textSize="14dp"
+            android:gravity="top|left"
+            android:paddingLeft="15dp"
+            android:paddingTop="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
+
+
+        <!--Scan Duration-->
+
+        <TextView android:id="@+id/scan_duration_header"
+            android:layout_below="@+id/rssi_threshold_footer"
+            android:layout_centerHorizontal="true"
+            android:layout_height="44dp"
+            android:layout_width="match_parent"
+            android:text="Scan Duration"
+            android:textSize="14dp"
+            android:gravity="bottom|left"
+            android:paddingLeft="15dp"
+            android:paddingBottom="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
+
+        <TextView android:id="@+id/scan_duration_label_text_view"
+            android:layout_below="@+id/scan_duration_header"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:textColor="#000"
+            android:text="Timeout"
+            android:textSize="17dp"
+            android:gravity="left|center"
+            android:paddingLeft="15dp"
+            android:visibility="visible"
+            />
+
+        <EditText android:id="@+id/scan_duration_timeout_edit_text"
+            android:layout_below="@+id/scan_duration_header"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:gravity="center|right"
+            android:layout_centerVertical="true"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:paddingRight="15dp"
+            android:textColor="#000"
+            android:text="0"
+            android:textSize="17dp"
+            android:hint="- - -"
+            android:visibility="visible"
+            android:inputType="numberSigned"
+            android:maxLength="4"
+            />
+
+        <TextView android:id="@+id/scan_duration_footer"
+            android:layout_below="@+id/scan_duration_timeout_edit_text"
+            android:layout_centerHorizontal="true"
+            android:layout_height="30dp"
+            android:layout_width="match_parent"
+            android:text="Leave blank to scan indefinitely.  Stop/start to apply."
+            android:textSize="14dp"
+            android:gravity="top|left"
+            android:paddingLeft="15dp"
+            android:paddingTop="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
+
+            <!--Card Data-->
+
+            <TextView android:id="@+id/player_id_header"
+                android:layout_below="@+id/scan_duration_footer"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="Card Data"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <LinearLayout
+                android:id="@+id/cardDataLinearLayout"
+                android:layout_below="@+id/player_id_header"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/player_id_edit_text"
+                    android:layout_width="0dp"
+                    android:layout_height="60dp"
+                    android:layout_weight="1"
+                    android:layout_alignParentLeft="true"
+                    android:layout_centerHorizontal="true"
+                    android:background="@android:color/transparent"
+                    android:gravity="left|center"
+                    android:hint="Please enter card data"
+                    android:imeOptions="actionDone"
+                    android:paddingLeft="15dp"
+                    android:singleLine="true"
+                    android:text=""
+                    android:textColor="#000"
+                    android:textSize="17dp"
+                    android:visibility="visible" />
+
+                <Button
+                    android:id="@+id/cardDataButton"
+                    android:layout_width="100dp"
+                    android:layout_height="62dp"
+                    android:layout_below="@+id/player_id_header"
+                    android:layout_toLeftOf="@+id/player_id_edit_text"
+                    android:layout_alignParentRight="true"
+                    android:text="Write"
+                />
+
+            </LinearLayout>
+
+
+            <TextView
+                android:id="@+id/lastWriteAtTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/cardDataLinearLayout"
+                android:layout_alignParentLeft="true"
+                android:layout_centerHorizontal="true"
+                android:background="#DDD"
+                android:gravity="top|left"
+                android:maxLines="20"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:paddingRight="15dp"
+                android:paddingBottom="15dp"
+                android:text="- - -"
+                android:textColor="#444"
+                android:textSize="14dp" />
+
+            <TextView
+                android:id="@+id/player_id_footer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/lastWriteAtTextView"
+                android:layout_alignParentLeft="true"
+                android:layout_centerHorizontal="true"
+                android:background="#DDD"
+                android:gravity="top|left"
+                android:maxLines="20"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:paddingRight="15dp"
+                android:paddingBottom="15dp"
+                android:text="Initial value is read from the card reader upon connection.\n\nAccepts any UTF8 string up to 195 characters.  Null termination added automatically upon write."
+                android:textColor="#444"
+                android:textSize="14dp" />
+
+        <!--Terminal Kind-->
+
+        <TextView android:id="@+id/terminal_id_header"
+            android:layout_below="@+id/player_id_footer"
+            android:layout_centerHorizontal="true"
+            android:layout_height="44dp"
+            android:layout_width="match_parent"
+            android:text="Terminal Kind"
+            android:textSize="14dp"
+            android:gravity="bottom|left"
+            android:paddingLeft="15dp"
+            android:paddingBottom="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
+
+        <TextView android:id="@+id/terminal_id_text_view"
+            android:layout_below="@+id/terminal_id_header"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_centerHorizontal="true"
+            android:background="@android:color/transparent"
+            android:textColor="#000"
+            android:text="- - -"
+            android:textSize="17dp"
+            android:gravity="left|center"
+            android:paddingLeft="15dp"
+            android:visibility="visible"
+            />
+
+        <TextView android:id="@+id/terminal_id_footer"
+            android:layout_below="@+id/terminal_id_text_view"
+            android:layout_centerHorizontal="true"
+            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:text="This value is read from the card reader upon connection."
+            android:textSize="14dp"
+            android:gravity="top|left"
+            android:paddingLeft="15dp"
+            android:paddingTop="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
+
+
+            <!--Sticky Connection-->
+
+            <TextView android:id="@+id/sticky_connection_header"
+                android:layout_below="@+id/terminal_id_footer"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="Sticky Connection"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <TextView android:id="@+id/sticky_connection_text_view"
+                android:layout_below="@+id/sticky_connection_header"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <TextView android:id="@+id/sticky_connection_footer"
+                android:layout_below="@+id/sticky_connection_text_view"
+                android:layout_centerHorizontal="true"
+                android:layout_height="wrap_content"
+                android:layout_width="match_parent"
+                android:text="This value is read from the card reader upon connection."
+                android:textSize="14dp"
+                android:gravity="top|left"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <!--Sticky Connection-->
+
+            <TextView android:id="@+id/connected_rssi_header"
+                android:layout_below="@+id/sticky_connection_footer"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="Connected RSSI"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <TextView android:id="@+id/connected_rssi_text_view"
+                android:layout_below="@+id/connected_rssi_header"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <TextView android:id="@+id/connected_rssi_footer"
+                android:layout_below="@+id/connected_rssi_text_view"
+                android:layout_centerHorizontal="true"
+                android:layout_height="wrap_content"
+                android:layout_width="match_parent"
+                android:text="Only updates while a BLE device is connected."
+                android:textSize="14dp"
+                android:gravity="top|left"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+
+        </RelativeLayout>
+
+    </ScrollView>
+
+</RelativeLayout>
