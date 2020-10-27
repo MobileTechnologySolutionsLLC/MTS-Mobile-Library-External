@@ -20,9 +20,5 @@
 7. Refer to the MTSServiceUpdateIntentFilter for a list of actions.
 
 ## Licensing
-The MTS package depends on GPL v3.0 code from SweetBlue:
-https://github.com/iDevicesInc/SweetBlue/blob/master/LICENSE
-Commercial licensing is available at https://solutions.idevicesinc.com
-
 The example project uses MIT license Perfect Tune Library for event tones:
 https://github.com/karlotoy/perfectTune/blob/master/LICENSE.txt
