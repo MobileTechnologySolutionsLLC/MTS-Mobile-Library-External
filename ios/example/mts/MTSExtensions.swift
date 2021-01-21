@@ -1,6 +1,6 @@
 //
 //
-//  Copyright © 2020 Mobile Technology Solutions, Inc. All rights reserved.
+//  Copyright © 2021 Mobile Technology Solutions, Inc. All rights reserved.
 //
 
 import Foundation
@@ -11,6 +11,9 @@ extension Data {
     }
     var utf8: String? {
         return String(bytes: self, encoding: String.Encoding.utf8)
+    }
+    func to<T>(type: T.Type) -> T {
+        return self.withUnsafeBytes { $0.load(as: type) }
     }
 }
 

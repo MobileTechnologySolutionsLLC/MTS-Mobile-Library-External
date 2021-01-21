@@ -1,39 +1,50 @@
 //
 //
-//  Copyright © 2020 Mobile Technology Solutions, Inc. All rights reserved.
+//  Copyright © 2021 Mobile Technology Solutions, Inc. All rights reserved.
 //
 
 import UIKit
 import CoreBluetooth
 
-public enum BluetoothConnectionState {
+public enum BluetoothDiscoveryState {
     case notReady
     case inactive
     case scanning
-    case connected
-    case attemptingToReconnect
+}
+
+public enum BluetoothConnectionEvent {
+    case connect
+    case disconnect
 }
 
 public protocol MTSManagerDelegate {
-    func bluetoothConnectionStateChanged()
-    func receivedCardData(cardData: String)
-    func didWriteCardDataToBluetooth(error: Error?)
-    func receivedCardData(data: Data)
-    func receivedStickyConnectionState(isSticky: Bool)
-    func receivedTerminalKind(kind: MTSBeacon.TerminalKind)
-    func reconnectAttemptTimedOut()
-    func updateOnConnectedRSSIReceipt(rssi: Int)
+    func bluetoothConnectionEvent(bluetoothEvent: BluetoothConnectionEvent, mtsBeacon: MTSBeacon?)
+    func bluetoothDiscoveryStateChanged(oldState: BluetoothDiscoveryState, newState: BluetoothDiscoveryState)
+    func receivedTerminalId(terminalId: String, mtsBeacon: MTSBeacon)
+    func receivedCardData(cardData: Data, mtsBeacon: MTSBeacon)
+    func didWriteCardDataToBluetooth(error: Error?, mtsBeacon: MTSBeacon)
+    func receivedTerminalKind(kind: MTSBeacon.TerminalKind, mtsBeacon: MTSBeacon)
+    func updateOnConnectedRSSIReceipt(rssi: Int, mtsBeacon: MTSBeacon)
+    func receivedSasSerialNumber(serialNumber: String?, mtsBeacon: MTSBeacon)
+    func receivedLocation(location: String?, mtsBeacon: MTSBeacon)
+    func receivedAssetNumber(assetNumber: UInt32, mtsBeacon: MTSBeacon)
+    func receivedDenomination(denomination: UInt32, mtsBeacon: MTSBeacon)
+    func receivedGmiLinkActive(isActive: Bool, mtsBeacon: MTSBeacon)
 }
 
 public extension MTSManagerDelegate {
-    func bluetoothConnectionStateChanged(){}
-    func receivedCardData(cardData: String){}
-    func didWriteCardDataToBluetooth(error: Error?){}
-    func receivedCardData(data: Data){}
-    func receivedStickyConnectionState(isSticky: Bool){}
-    func receivedTerminalKind(kind: MTSBeacon.TerminalKind){}
-    func reconnectAttemptTimedOut(){}
-    func updateOnConnectedRSSIReceipt(rssi: Int){}
+    func bluetoothConnectionEvent(bluetoothEvent: BluetoothConnectionEvent, mtsBeacon: MTSBeacon?){}
+    func bluetoothDiscoveryStateChanged(oldState: BluetoothDiscoveryState, newState: BluetoothDiscoveryState){}
+    func receivedTerminalId(terminalId: String, mtsBeacon: MTSBeacon){}
+    func receivedCardData(cardData: Data, mtsBeacon: MTSBeacon){}
+    func didWriteCardDataToBluetooth(error: Error?, mtsBeacon: MTSBeacon){}
+    func receivedTerminalKind(kind: MTSBeacon.TerminalKind, mtsBeacon: MTSBeacon){}
+    func updateOnConnectedRSSIReceipt(rssi: Int, mtsBeacon: MTSBeacon){}
+    func receivedSasSerialNumber(serialNumber: String?, mtsBeacon: MTSBeacon){}
+    func receivedLocation(location: String?, mtsBeacon: MTSBeacon){}
+    func receivedAssetNumber(assetNumber: UInt32, mtsBeacon: MTSBeacon){}
+    func receivedDenomination(denomination: UInt32, mtsBeacon: MTSBeacon){}
+    func receivedGmiLinkActive(isActive: Bool, mtsBeacon: MTSBeacon){}
 }
 
 struct MTSConstants {
@@ -52,7 +63,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     
     public static let sharedInstance = MTSManager()
     public let delegate = MulticastDelegate<MTSManagerDelegate>()
-    public var bluetoothConnectionState = BluetoothConnectionState.notReady
+    public var bluetoothDiscoveryState = BluetoothDiscoveryState.notReady
     public var loggingEnabled = true
     public let cardDataCharacterCountMax = 195 // 195 automatic null termination, so 196 total accepted by the peripheral.
     
@@ -61,7 +72,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     private var centralManager: CBCentralManager!
     private let bluetoothDispatchQueue = DispatchQueue(label: "com.mts.example.bluetooth")
     private var requiredCharacteristics = [MTSCharacteristic]()
-    public var connectedMTSBeacon: MTSBeacon? // TODO: revisit whether this is public.
+    public var connectedMTSBeacons = [MTSBeacon]()
     private var discoveredBeacons = [MTSBeacon]()
 
     private var scanRefreshTimer = Timer()
@@ -77,7 +88,6 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     private var rssiRefreshWhileConnectedTimer = Timer()
     private let rssiRefreshWhileConnectedInterval: CFTimeInterval = 1.0
 
-    private var autoDisconnectTimer = Timer()
     private let autoDisconnectEvaluationInterval: CFTimeInterval = 1.0
 
     private let maxRSSIThresholdValue = 0
@@ -95,7 +105,8 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     }
     
     private enum MTSService: String {
-        case mts = "C1FB6CDA-3F15-4BC0-8A46-8E9C341065F8"
+        case mts                = "C1FB6CDA-3F15-4BC0-8A46-8E9C341065F8"
+        case machineInfoSvc     = "C83FE52E-0AB5-49D9-9817-98982B4C48A3"
         var uuid: CBUUID {
             return CBUUID(string: self.rawValue)
         }
@@ -103,32 +114,41 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     
     private enum MTSCharacteristic: String {
         case cardData           = "60D11359-FEB2-411D-A430-CA6167052BD6"
-        case stickyConnect      = "4B6A91D8-EA3E-42A4-B39B-B300F5F64C86"
+        case stickyConnect      = "4B6A91D8-EA3E-42A4-B39B-B300F5F64C86"    // For potential future use, not currently supported.
         case terminalKind       = "D308DFDE-9F06-4A73-A2C7-EB952E40A184"
         case userDisconnected   = "4E3A829D-4830-47A0-995F-EE923710A469"
+        case sasSerialNumber    = "9D77E2CF-5D20-44EA-8D2F-A221B976C605"    // utf8s[41], read-only, 40 characters + required null termination.
+        case location           = "42C458D7-86B9-4ED8-B57E-1352C7F5100A"    // utf8s[41], read-only, 40 characters + required null termination.
+        case assetNumber        = "D77A787D-E75D-4370-8CAC-6DCFE37DBB92"    // uint32, read-only.
+        case denomination       = "7B9432C6-465A-40FA-A13B-03544B6F0742"    // uint32, read-only, unit is cents.
+        case gmiLinkActive      = "023B4A4A-579C-495F-A61E-D3BBBFD63C4A"    // bool, read/notify, cardreader's link state for it's GMI interface as active (0x01) or inactive (0x00).
+    
         var uuid: CBUUID {
             return CBUUID(string: self.rawValue)
         }
-        static let requiredCharacteristics = [cardData, stickyConnect, terminalKind, userDisconnected]
+        // TODO: Evaluate whether prior fw is in use which will not be updated to include all
+        // characteristics.  If all deployed mtsBeacons will support all characteristics, it
+        // is preferable to include them all in this list.  Why:
+        static let requiredCharacteristics = [cardData, terminalKind, userDisconnected]
     }
 
     // MARK: Public Methods
     
     public func startScanning() {
-        changeConnectionState(newState: .scanning)
+        changeBluetoothDiscoveryState(newState: .scanning)
     }
 
     public func stopScanning() {
-        changeConnectionState(newState: .inactive)
+        changeBluetoothDiscoveryState(newState: .inactive)
     }
     
-    public func disconnect() {
-        guard let peripheral = connectedMTSBeacon?.peripheral else {
-            logIfEnabled("\(#function) Failed due at guard let peripheral = connectedMTSBeacon?.peripheral.")
-            return
-        }
+    public func disconnect(mtsBeacon: MTSBeacon) {
         
-        guard let characteristic = characteristic(.userDisconnected) else {
+        mtsBeacon.isCharacteristicDiscoveryComplete = false
+        
+        let peripheral = mtsBeacon.peripheral
+        
+        guard let characteristic = characteristic(.userDisconnected, mtsBeacon: mtsBeacon) else {
             logIfEnabled("\(#function) Failed at characteristic lookup.")
             return
         }
@@ -136,23 +156,20 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         peripheral.writeValue(Data([1]), for: characteristic, type: .withResponse)
     }
     
-    private func disconnectUponDidWriteofUserDisconnected() {
-        changeConnectionState(newState: .scanning)
+    private func disconnectUponDidWriteofUserDisconnected(mtsBeacon: MTSBeacon) {
+        disconnectIfNeeded(mtsBeacon)
+        bluetoothConnectionEventOccurred(bluetoothEvent: .disconnect, mtsBeacon: mtsBeacon)
     }
     
-    public func requestCardData() {
-        NSLog("\(#function)")
-        readCharacteristic(.cardData)
+    public func requestCardData(mtsBeacon: MTSBeacon) {
+        readCharacteristic(.cardData, mtsBeacon: mtsBeacon)
     }
     
-    public func writeCardDataToBluetooth(cardDataString: String) throws {
+    
+    public func writeCardDataToBluetooth(cardDataString: String, mtsBeacon: MTSBeacon) throws {
+        let peripheral = mtsBeacon.peripheral
         
-        guard let peripheral = connectedMTSBeacon?.peripheral else {
-            logIfEnabled("\(#function) Failed due at guard let peripheral = connectedMTSBeacon?.peripheral.")
-            throw MTSError.writeFailure(description: "Bluetooth connection failure.")
-        }
-        
-        guard let characteristic = characteristic(.cardData) else {
+        guard let characteristic = characteristic(.cardData, mtsBeacon: mtsBeacon) else {
             logIfEnabled("\(#function) Failed at characteristic lookup.")
             throw MTSError.writeFailure(description: "Bluetooth characteristic lookup failed.")
         }
@@ -242,7 +259,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     private func startScan() {
         guard centralManager.state == .poweredOn else {
             logIfEnabled("\(#function) failed because centralManager.state != .poweredOn")
-            changeConnectionState(newState: .notReady)
+            changeBluetoothDiscoveryState(newState: .notReady)
             return
             
         }
@@ -270,17 +287,23 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         scanRefreshTimer.invalidate()
     }
     
-    private func connect(beacon: MTSBeacon) {
+    private func connect(mtsBeacon: MTSBeacon) {
         guard centralManager.state == .poweredOn else {
             logIfEnabled("\(#function) failed because centralManager.state != .poweredOn")
             return
         }
-        connectedMTSBeacon = beacon
+        
+        if let _ = connectedMTSBeacons.firstIndex(of: mtsBeacon) {
+            logIfEnabled("\(#function) called for existing member mtsBeacon.peripheral: \(mtsBeacon.peripheral)")
+        } else {
+            connectedMTSBeacons.append(mtsBeacon)
+        }
+        
         stopScan()
         stopScanRefreshTimer()
         stopExpirationTimer()
         clearDiscoveredBeacons()
-        centralManager.connect(beacon.peripheral, options: nil)
+        centralManager.connect(mtsBeacon.peripheral, options: nil)
     }
     
     private func clearDiscoveredBeacons() {
@@ -289,117 +312,68 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         }
     }
     
-    private func disconnectIfNeeded() {
-        defer {
-            connectedMTSBeacon = nil
-        }
-        guard let peripheral = connectedMTSBeacon?.peripheral else {
+    private func disconnectIfNeeded(_ mtsBeacon: MTSBeacon?) {
+        guard let mtsBeacon = mtsBeacon else {
             return
         }
-        centralManager.cancelPeripheralConnection(peripheral)
+        centralManager.cancelPeripheralConnection(mtsBeacon.peripheral)
     }
     
-    private func changeConnectionState(newState: BluetoothConnectionState) {
-        if bluetoothConnectionState == newState {
+    private func changeBluetoothDiscoveryState(newState: BluetoothDiscoveryState) {
+        if bluetoothDiscoveryState == newState {
+            logIfEnabled("\(#function) returning early since new/old states are same: \(newState)")
             return
         }
-        logIfEnabled("\(#function) \(bluetoothConnectionState) -> \(newState)")
-        bluetoothConnectionState = newState
-        stopAutoDisconnectTimer()
-        stopScanTimeoutTimer()
-        stopRSSIRefreshWhileConnectedTimer()
-        switch bluetoothConnectionState {
+        let oldState = bluetoothDiscoveryState
+        bluetoothDiscoveryState = newState
+        logIfEnabled("\(#function) \(oldState) -> \(newState)")
+
+        switch bluetoothDiscoveryState {
         case .notReady:
-            disconnectIfNeeded()
             stopScan()
             stopScanRefreshTimer()
             stopExpirationTimer()
+            stopScanTimeoutTimer()
         case .inactive:
-            disconnectIfNeeded()
             stopScan()
             stopScanRefreshTimer()
             stopExpirationTimer()
+            stopScanTimeoutTimer()
         case .scanning:
-            disconnectIfNeeded()
             startScan()
-            startScanTimeoutTimer()
-            startScanRefreshTimer()
-            startExpirationTimer()
-        case .connected:
-            stopScan()
-            stopScanRefreshTimer()
-            stopExpirationTimer()
+        }
+        invokeBluetoothDiscoveryStateChangedDelegate(oldState: oldState, newState: newState)
+    }
+    
+    // N.B. scanning is required to stop upon connect.  This is a change from prior behavior where disconnect would
+    // transition to scanning without user intervention.
+    private func bluetoothConnectionEventOccurred(bluetoothEvent: BluetoothConnectionEvent, mtsBeacon: MTSBeacon?) {
+        mtsBeacon?.autoDisconnectTimer.invalidate()
+        stopRSSIRefreshWhileConnectedTimer()
+        changeBluetoothDiscoveryState(newState: .inactive)
+        switch bluetoothEvent {
+        case .connect:
             startRSSIRefreshWhileConnectedTimer()
-        case .attemptingToReconnect:
-            reconnect()
+        case .disconnect:
+            break
         }
-        invokeBluetoothConnectionStateChangedDelegate()
+        invokeBluetoothBluetoothEventOccurred(bluetoothEvent: bluetoothEvent, mtsBeacon: mtsBeacon)
     }
     
-    func reconnect() {
-        guard let beacon = connectedMTSBeacon else {
-            logIfEnabled("\(#function) returned early due to nil connectedMTSBeacon")
-            return
-        }
-        guard let peripheral = connectedMTSBeacon?.peripheral else {
-            logIfEnabled("\(#function) returned early due to nil beacon.peripheral")
-            return
-        }
-        guard ![.connected, .connecting].contains(peripheral.state) else {
-            logIfEnabled("\(#function) returned early due to invalid peripheral.state: \(peripheral.state)")
-            return
-        }
-        guard .attemptingToReconnect == bluetoothConnectionState else {
-            logIfEnabled("\(#function) returned early because it was called with invalid connectionState \(bluetoothConnectionState)")
-            return
-        }
-        // Tell iOS we want to reconnect when the peripheral is back in range.
-        connect(beacon: beacon)
-        
-        startReconnectTimeout()
-    }
-    
-    //MARK: Lost Connection Reconnect Timeout
-    var reconnectTimeOutDispatchWorkItem: DispatchWorkItem?
-    let reconnectTimeOutInterval: CFTimeInterval = 10.0
-    
-    func startReconnectTimeout() {
-        reconnectTimeOutDispatchWorkItem = DispatchWorkItem(block: { [weak self] in
-            self?.reconnectTimedOut()
-        })
-        DispatchQueue.main.asyncAfter(
-            deadline: DispatchTime.now() + reconnectTimeOutInterval,
-            execute: reconnectTimeOutDispatchWorkItem!
-        )
-    }
-
-    func reconnectTimedOut() {
-        if let peripheral = connectedMTSBeacon?.peripheral {
-            centralManager.cancelPeripheralConnection(peripheral)
-        }
-        changeConnectionState(newState: .scanning)
-        invokeReconnectAttemptTimedOut()
-    }
-
-    func cancelReconnectTimeOut() {
-        DispatchQueue.main.async {
-            self.reconnectTimeOutDispatchWorkItem?.cancel()
-        }
-    }
     
     
     //MARK: Timers Active While Connected
     
+    // Read connected RSSI from each connected mtsBeacon each rssiRefreshWhileConnectedInterval.
+    // N.B. this is tested with two beacons.  Revisit the interval if larger beacon counts are used.
     private func startRSSIRefreshWhileConnectedTimer() {
         rssiRefreshWhileConnectedTimer.invalidate()
         DispatchQueue.main.async {
             self.rssiRefreshWhileConnectedTimer = Timer.scheduledTimer(withTimeInterval: self.rssiRefreshWhileConnectedInterval, repeats: true, block: { (Timer) in
-                guard let b = self.connectedMTSBeacon else {
-                    self.logIfEnabled("\(#function) unexpectedly called while connectedMTSBeacon is nil.")
-                    return
-                }
                 self.bluetoothDispatchQueue.async {
-                    b.peripheral.readRSSI()
+                    self.connectedMTSBeacons.forEach { (mtsBeacon) in
+                        mtsBeacon.peripheral.readRSSI()
+                    }
                 }
             })
         }
@@ -409,51 +383,41 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         rssiRefreshWhileConnectedTimer.invalidate()
     }
     
-    private func evaluateVsAutoDisconnectThreshold(rssi: Int) {
+    private func evaluateVsAutoDisconnectThreshold(rssi: Int, mtsBeacon: MTSBeacon) {
         guard thresholdAutoDisconnectEnabled else {
             return
         }
         if autoDisconnectRSSIThreshold > rssi {
-            guard !autoDisconnectTimer.isValid else {
+            guard !mtsBeacon.autoDisconnectTimer.isValid else {
                 return
             }
-            startAutoDisconnectTimer()
+            startAutoDisconnectTimer(mtsBeacon: mtsBeacon)
         } else {
-            stopAutoDisconnectTimer()
+            mtsBeacon.autoDisconnectTimer.invalidate()
         }
     }
     
-    private func startAutoDisconnectTimer() {
+    private func startAutoDisconnectTimer(mtsBeacon: MTSBeacon) {
         DispatchQueue.main.async {
-            self.autoDisconnectTimer = Timer.scheduledTimer(withTimeInterval: Double(self.autoDisconnectInterval), repeats: false, block: { (Timer) in
-                self.disconnectIfNeeded()
+            mtsBeacon.autoDisconnectTimer = Timer.scheduledTimer(withTimeInterval: Double(self.autoDisconnectInterval), repeats: false, block: { (Timer) in
+                self.disconnectIfNeeded(mtsBeacon)
             })
         }
     }
     
-    private func stopAutoDisconnectTimer() {
-        autoDisconnectTimer.invalidate()
-    }
-    
     private func evaluateVsThreshold(beacon: MTSBeacon) {
         if beacon.filteredRSSI > autoConnectRSSIThreshold {
-            thresholdCrossed(beacon: beacon)
+            thresholdCrossed(mtsBeacon: beacon)
         }
     }
     
-    private func thresholdCrossed(beacon: MTSBeacon) {
+    private func thresholdCrossed(mtsBeacon: MTSBeacon) {
         guard thresholdAutoConnectEnabled else {
-            NSLog("\(#function) exited early because thresholdAutoConnectEnabled was false")
+            logIfEnabled("\(#function) exited early because thresholdAutoConnectEnabled was false")
             return
         }
-        
-        guard nil == connectedMTSBeacon else {
-            NSLog("\(#function) exited early because connectedMTSBeacon was already assigned")
-            return
-        }
-        connect(beacon: beacon)
+        connect(mtsBeacon: mtsBeacon)
     }
-    
     
     //MARK: Scan Timeout
 
@@ -462,7 +426,6 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         if 0 == scanTimeoutInterval {
             return
         }
-        NSLog("\(#function) scanTimeoutInterval: \(scanTimeoutInterval)")
         scanTimeoutTimer = Timer.scheduledTimer(
             timeInterval: Double(scanTimeoutInterval),
             target: self,
@@ -476,7 +439,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     }
     
     @objc private func scanTimedOut() {
-        if .scanning == bluetoothConnectionState {
+        if .scanning == bluetoothDiscoveryState {
             stopScanning()
         }
     }
@@ -514,9 +477,9 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn:
-            changeConnectionState(newState: .inactive)
+            changeBluetoothDiscoveryState(newState: .inactive)
         default:
-            changeConnectionState(newState: .notReady)
+            changeBluetoothDiscoveryState(newState: .notReady)
         }
     }
     
@@ -561,43 +524,39 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     }
     
     private func updateRSSI(peripheral p: CBPeripheral, rssi r: Int) {
-        guard let beacon = connectedMTSBeacon else {
-            logIfEnabled("\(#function) failed to update RSSI due to nil connectedMTSBeacon")
+        guard let mtsBeacon = connectedMTSBeaconFromPeripheral(p) else {
+            logIfEnabled("\(#function) failed at guard let mtsBeacon = connectedMTSBeaconFromPeripheral")
             return
         }
-        guard p == beacon.peripheral else {
+        guard p == mtsBeacon.peripheral else {
             logIfEnabled("\(#function) failed because you received an RSSI value for a beacon other than connectedMTSBeacon.")
             return
         }
-        logIfEnabled("\(#function) connected peripheral rssi: \(r)")
-        connectedMTSBeacon?.updateOnConnectedRSSIReceipt(rssi: r)
-        invokeUpdateOnConnectedRSSIReceipt(rssi: r)
-        evaluateVsAutoDisconnectThreshold(rssi: r)
+        // logIfEnabled("\(#function) peripheral: \(p.description) rssi: \(r)")
+        mtsBeacon.updateOnConnectedRSSIReceipt(rssi: r)
+        invokeUpdateOnConnectedRSSIReceipt(rssi: r, mtsBeacon: mtsBeacon)
+        evaluateVsAutoDisconnectThreshold(rssi: r, mtsBeacon: mtsBeacon)
     }
     
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        NSLog("\(#function) didConnect")
-        cancelReconnectTimeOut()
         stopScan()
         requiredCharacteristics = MTSCharacteristic.requiredCharacteristics
         peripheral.delegate = self
-        peripheral.discoverServices([MTSService.mts.uuid])
+        peripheral.discoverServices([MTSService.mts.uuid, MTSService.machineInfoSvc.uuid])
         // N.B. Defer the .connected state transition until discovery of required characteristics.
     }
     
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        if .inactive == bluetoothConnectionState {
-            return
+        var disconnectedMTSBeacon: MTSBeacon? = nil
+        if let beacon = connectedMTSBeaconFromPeripheral(peripheral) {
+            if let index = connectedMTSBeacons.firstIndex(of: beacon) {
+                connectedMTSBeacons.remove(at: index)
+            } else {
+                logIfEnabled("\(#function) called for mtsBeacon with peripheral.identifier \(peripheral.identifier) already absent from connectedMTSBeacons.")
+            }
+            disconnectedMTSBeacon = beacon
         }
-        
-        if let beacon = connectedMTSBeacon,
-           true == beacon.wantsStickyConnection,
-           .connected == bluetoothConnectionState
-        {
-            changeConnectionState(newState: .attemptingToReconnect)
-        } else {
-            changeConnectionState(newState: .scanning)
-        }
+        bluetoothConnectionEventOccurred(bluetoothEvent: .disconnect, mtsBeacon: disconnectedMTSBeacon)
     }
     
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
@@ -615,11 +574,16 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         
-        guard MTSService.mts.uuid == service.uuid else {
+        guard [MTSService.mts.uuid, MTSService.machineInfoSvc.uuid].contains(service.uuid) else {
             return
         }
         
         guard let characteristics = service.characteristics else {
+            return
+        }
+        
+        guard let mtsBeacon = connectedMTSBeaconFromPeripheral(peripheral) else {
+            logIfEnabled("Returned early at guard let connectedMTSBeacon.")
             return
         }
         
@@ -628,21 +592,32 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
             guard let mtsCharacteristic = MTSCharacteristic(rawValue: characteristic.uuid.uuidString) else {
                 continue
             }
+
+            if mtsCharacteristic == MTSCharacteristic.gmiLinkActive {
+                peripheral.setNotifyValue(true, for: characteristic)
+            }
             
             requiredCharacteristics = requiredCharacteristics.filter{$0 != mtsCharacteristic}
             peripheral.readValue(for: characteristic)
         }
 
-        if 0 == requiredCharacteristics.count {
-           changeConnectionState(newState: .connected)
+        if 0 == requiredCharacteristics.count &&
+           false == mtsBeacon.isCharacteristicDiscoveryComplete
+        {
+            NSLog("\(#function) 0 == requiredCharacteristics.count, calling .connect bluetoothConnectionEventOccurred...")
+            mtsBeacon.isCharacteristicDiscoveryComplete = true
+            bluetoothConnectionEventOccurred(bluetoothEvent: .connect, mtsBeacon: mtsBeacon)
         } else {
             logIfEnabled("\(#function) Failed to discover required characteristics \(requiredCharacteristics.description) for MTSService.mts.")
         }
     }
     
     public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-
-        NSLog("\(#function)")
+        
+        guard let connectedMTSBeacon = connectedMTSBeaconFromPeripheral(peripheral) else {
+            logIfEnabled("\(#function) Failed at guard let mtsBeacon = connectedMTSBeaconFromPeripheral.")
+            return
+        }
         
         guard let mtsCharacteristic = MTSCharacteristic(rawValue: characteristic.uuid.uuidString) else {
             logIfEnabled("\(#function) Received update for unexpected characteristic: \(characteristic.uuid.uuidString)")
@@ -654,54 +629,86 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
             return
         }
 
+        NSLog("\(#function) mtsCharacteristic: \(mtsCharacteristic.uuid.uuidString) value.hex: \(value.hex)")
+        
         switch mtsCharacteristic {
         case .stickyConnect:
-            let state = 1 == value[0]
-            connectedMTSBeacon?.wantsStickyConnection = state
-            invokeReceivedStickyConnection(isSticky: state)
+            break
         case .cardData:
-            invokeReceivedCardData(data: value)
+            invokeReceivedCardData(cardData: value, mtsBeacon: connectedMTSBeacon)
         case .terminalKind:
             let kind = MTSBeacon.TerminalKind(value: value)
-            invokeReceivedTerminalKind(terminalKind: kind)
+            invokeReceivedTerminalKind(terminalKind: kind, mtsBeacon: connectedMTSBeacon)
         case .userDisconnected:
             break
+        case .sasSerialNumber:
+            invokeReceivedSasSerialNumber(serialNumber: value.utf8, mtsBeacon: connectedMTSBeacon)
+        case .location:
+            invokeReceivedLocation(location: value.utf8, mtsBeacon: connectedMTSBeacon)
+        case .assetNumber:
+            var assetNumber = value.to(type: UInt32.self)
+            assetNumber = UInt32(littleEndian: assetNumber)
+            invokeReceivedAssetNumber(assetNumber: assetNumber, mtsBeacon: connectedMTSBeacon)
+        case .denomination:
+            var denomination = value.to(type: UInt32.self)
+            denomination = UInt32(littleEndian: denomination)
+            invokeReceivedDenomination(denomination: denomination, mtsBeacon: connectedMTSBeacon)
+        case .gmiLinkActive:
+            let active   = UInt8(0x01)
+            let isActive = active == value[0]
+            invokeReceivedGmiLinkActive(isActive: isActive, mtsBeacon: connectedMTSBeacon)
         }
     }
     
     public func peripheral(_ peripheral: CBPeripheral, didReadRSSI RSSI: NSNumber, error: Error?){
-        updateRSSI(peripheral: peripheral, rssi: RSSI.intValue)
-    }
+           updateRSSI(peripheral: peripheral, rssi: RSSI.intValue)
+       }
+       
+       private func connectedMTSBeaconFromPeripheral(_ peripheral: CBPeripheral) -> MTSBeacon? {
+           return connectedMTSBeacons.filter({$0.peripheral == peripheral}).first
+       }
 
-    public func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
-        logIfEnabled("\(#function) \(String(describing:characteristic.uuid.uuidString)) error: \(String(describing: error?.localizedDescription))")
-        switch characteristic.uuid {
-        case MTSCharacteristic.cardData.uuid:
-            invokeDidWriteCardDataToBluetooth(error: error)
-        case MTSCharacteristic.userDisconnected.uuid:
-            disconnectUponDidWriteofUserDisconnected()
-        default:
-            break
-        }
-    }
+       private func mtsBeaconFromPeripheral(_ peripheral: CBPeripheral) -> MTSBeacon? {
+           if let mtsBeacon = connectedMTSBeacons.filter({$0.peripheral == peripheral}).first {
+               return mtsBeacon
+           }
+           else if let mtsBeacon = discoveredBeacons.filter({$0.peripheral == peripheral}).first {
+               return mtsBeacon
+           }
+           return nil
+       }
+
     
-    private func readCharacteristic(_ mtsCharacteristic: MTSCharacteristic) {
-        guard let peripheral = connectedMTSBeacon?.peripheral else {
-            return
+    public func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+            logIfEnabled("\(#function) \(String(describing:characteristic.uuid.uuidString)) error: \(String(describing: error?.localizedDescription))")
+            
+            guard let mtsBeacon = mtsBeaconFromPeripheral(peripheral) else {
+                logIfEnabled("\(#function) Failed at guard let mtsBeacon = mtsBeaconFromPeripheral.")
+                return
+            }
+            
+            switch characteristic.uuid {
+            case MTSCharacteristic.cardData.uuid:
+                invokeDidWriteCardDataToBluetooth(error: error, mtsBeacon: mtsBeacon)
+            case MTSCharacteristic.userDisconnected.uuid:
+                disconnectUponDidWriteofUserDisconnected(mtsBeacon: mtsBeacon)
+            default:
+                break
+            }
         }
-        guard let characteristic = characteristic(mtsCharacteristic) else {
+        
+    private func readCharacteristic(_ mtsCharacteristic: MTSCharacteristic, mtsBeacon: MTSBeacon) {
+        let peripheral = mtsBeacon.peripheral
+        guard let characteristic = characteristic(mtsCharacteristic, mtsBeacon: mtsBeacon) else {
             return
         }
         peripheral.readValue(for: characteristic)
     }
     
-    private func characteristic(_ mtsCharacteristic: MTSCharacteristic) -> CBCharacteristic? {
-        guard let peripheral = connectedMTSBeacon?.peripheral else {
-            logIfEnabled("\(#function) Failed due at guard let peripheral = connectedMTSBeacon?.peripheral.")
-            return nil
-        }
+    private func characteristic(_ mtsCharacteristic: MTSCharacteristic, mtsBeacon: MTSBeacon) -> CBCharacteristic? {
+        let peripheral = mtsBeacon.peripheral
         guard let services = peripheral.services else {
-            logIfEnabled("\(#function) Failed due at guard let services = peripheral.services.")
+            logIfEnabled("\(#function) Failed at guard let services = peripheral.services.")
             return nil
         }
         for service in services {
@@ -721,6 +728,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         logIfEnabled("\(#function) Failed to find characteristic: \(mtsCharacteristic)")
         return nil
     }
+
     
     // MARK: Simple Log Toggle
     
@@ -735,72 +743,103 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
 
 private extension MTSManager {
     
-    func invokeBluetoothConnectionStateChangedDelegate() {
+    func invokeBluetoothDiscoveryStateChangedDelegate(oldState: BluetoothDiscoveryState, newState: BluetoothDiscoveryState) {
         DispatchQueue.main.async {
             self.delegate.invokeDelegates({ delegate in
-                delegate.bluetoothConnectionStateChanged()
+                delegate.bluetoothDiscoveryStateChanged(oldState: oldState, newState: newState)
             })
         }
     }
 
-    func invokeReceivedCardData(cardData: String) {
+    func invokeBluetoothBluetoothEventOccurred(bluetoothEvent: BluetoothConnectionEvent, mtsBeacon: MTSBeacon?) {
         DispatchQueue.main.async {
             self.delegate.invokeDelegates({ delegate in
-                delegate.receivedCardData(cardData: cardData)
+                delegate.bluetoothConnectionEvent(bluetoothEvent: bluetoothEvent ,mtsBeacon: mtsBeacon)
             })
         }
     }
 
-    func invokeDidWriteCardDataToBluetooth(error: Error?) {
+    func invokeReceivedTerminalId(terminalId: String, mtsBeacon: MTSBeacon) {
         DispatchQueue.main.async {
             self.delegate.invokeDelegates({ delegate in
-                delegate.didWriteCardDataToBluetooth(error: error)
+                delegate.receivedTerminalId(terminalId: terminalId, mtsBeacon: mtsBeacon)
             })
         }
     }
 
-    func invokeReceivedCardData(data: Data) {
-        NSLog("\(#function)")
+    func invokeReceivedCardData(cardData: Data, mtsBeacon: MTSBeacon) {
         DispatchQueue.main.async {
             self.delegate.invokeDelegates({ delegate in
-                delegate.receivedCardData(data: data)
+                delegate.receivedCardData(cardData: cardData, mtsBeacon: mtsBeacon)
+            })
+        }
+    }
+
+    func invokeDidWriteCardDataToBluetooth(error: Error?, mtsBeacon: MTSBeacon) {
+        DispatchQueue.main.async {
+            self.delegate.invokeDelegates({ delegate in
+                delegate.didWriteCardDataToBluetooth(error: error, mtsBeacon: mtsBeacon)
             })
         }
     }
     
-    func invokeReceivedStickyConnection(isSticky: Bool) {
+    func invokeReceivedTerminalKind(terminalKind: MTSBeacon.TerminalKind, mtsBeacon: MTSBeacon) {
         DispatchQueue.main.async {
             self.delegate.invokeDelegates({ delegate in
-                delegate.receivedStickyConnectionState(isSticky: isSticky)
-            })
-        }
-    }
-
-    func invokeReceivedTerminalKind(terminalKind: MTSBeacon.TerminalKind) {
-        DispatchQueue.main.async {
-            self.delegate.invokeDelegates({ delegate in
-                delegate.receivedTerminalKind(kind: terminalKind)
+                delegate.receivedTerminalKind(kind: terminalKind, mtsBeacon: mtsBeacon)
             })
         }
     }
     
-    func invokeReconnectAttemptTimedOut() {
+    func invokeUpdateOnConnectedRSSIReceipt(rssi: Int, mtsBeacon: MTSBeacon) {
         DispatchQueue.main.async {
             self.delegate.invokeDelegates({ delegate in
-                delegate.reconnectAttemptTimedOut()
+                delegate.updateOnConnectedRSSIReceipt(rssi: rssi, mtsBeacon: mtsBeacon)
             })
         }
     }
-
-    func invokeUpdateOnConnectedRSSIReceipt(rssi: Int) {
+    
+    func invokeReceivedSasSerialNumber(serialNumber: String?, mtsBeacon: MTSBeacon) {
         DispatchQueue.main.async {
             self.delegate.invokeDelegates({ delegate in
-                delegate.updateOnConnectedRSSIReceipt(rssi: rssi)
+                delegate.receivedSasSerialNumber(serialNumber: serialNumber, mtsBeacon: mtsBeacon)
             })
         }
     }
+    
+    func invokeReceivedLocation(location: String?, mtsBeacon: MTSBeacon) {
+        DispatchQueue.main.async {
+            self.delegate.invokeDelegates({ delegate in
+                delegate.receivedLocation(location: location, mtsBeacon: mtsBeacon)
+            })
+        }
+    }
+    
+    func invokeReceivedAssetNumber(assetNumber: UInt32, mtsBeacon: MTSBeacon) {
+        DispatchQueue.main.async {
+            self.delegate.invokeDelegates({ delegate in
+                delegate.receivedAssetNumber(assetNumber: assetNumber, mtsBeacon: mtsBeacon)
+            })
+        }
+    }
+    
+    func invokeReceivedDenomination(denomination: UInt32, mtsBeacon: MTSBeacon) {
+        DispatchQueue.main.async {
+            self.delegate.invokeDelegates({ delegate in
+                delegate.receivedDenomination(denomination: denomination, mtsBeacon: mtsBeacon)
+            })
+        }
+    }
+    
+    func invokeReceivedGmiLinkActive(isActive: Bool, mtsBeacon: MTSBeacon) {
+        DispatchQueue.main.async {
+            self.delegate.invokeDelegates({ delegate in
+                delegate.receivedGmiLinkActive(isActive: isActive, mtsBeacon: mtsBeacon)
+            })
+        }
+    }
+    
 }
-
 
 
 // MARK: UserDefault Computed Properties

@@ -1,6 +1,6 @@
 //
 //
-//  Copyright © 2020 Mobile Technology Solutions, Inc. All rights reserved.
+//  Copyright © 2021 Mobile Technology Solutions, Inc. All rights reserved.
 //
 
 import UIKit
@@ -57,6 +57,9 @@ public class MTSBeacon {
     public var wantsStickyConnection: Bool = false
     private static let kCompanyIdentifier = Data([0x00, 0xA0, 0x50])
     public var mfgIdentifier: Data?
+    /// Used by the MTSManager to handle RSSI threshold disconnect evaluation for this beacon
+    public var autoDisconnectTimer = Timer()
+    public var isCharacteristicDiscoveryComplete: Bool = false
     
     public init(peripheral p: CBPeripheral) {
         peripheral = p
@@ -115,6 +118,12 @@ public class MTSBeacon {
 extension MTSBeacon: Equatable {
     public static func == (lhs: MTSBeacon, rhs: MTSBeacon) -> Bool {
         return lhs.peripheral == rhs.peripheral
+    }
+}
+
+extension MTSBeacon: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(peripheral)
     }
 }
 

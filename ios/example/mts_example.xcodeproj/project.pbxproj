@@ -11,11 +11,11 @@
 		7240525A1F2016660007944D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 724052581F2016660007944D /* Main.storyboard */; };
 		7240525C1F2016660007944D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7240525B1F2016660007944D /* Assets.xcassets */; };
 		7240525F1F2016660007944D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7240525D1F2016660007944D /* LaunchScreen.storyboard */; };
+		72773F9E25B8E89D0021C36B /* MulticastDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72773F9A25B8E89D0021C36B /* MulticastDelegate.swift */; };
+		72773F9F25B8E89D0021C36B /* MTSExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72773F9B25B8E89D0021C36B /* MTSExtensions.swift */; };
+		72773FA025B8E89D0021C36B /* MTSManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72773F9C25B8E89D0021C36B /* MTSManager.swift */; };
+		72773FA125B8E89D0021C36B /* MTSBeacon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72773F9D25B8E89D0021C36B /* MTSBeacon.swift */; };
 		72985AA020351D3F00022AF1 /* ExampleViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72985A9F20351D3F00022AF1 /* ExampleViewController.swift */; };
-		72985AA22036252600022AF1 /* MulticastDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72985AA12036252500022AF1 /* MulticastDelegate.swift */; };
-		72CE9AD924E8600B000CDCB1 /* MTSBeacon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72CE9AD824E8600B000CDCB1 /* MTSBeacon.swift */; };
-		72CE9ADA24E8600B000CDCB1 /* MTSManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72CE9AD724E8600B000CDCB1 /* MTSManager.swift */; };
-		72CE9ADB24E8600B000CDCB1 /* MTSExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72CE9AD624E8600B000CDCB1 /* MTSExtensions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -39,11 +39,11 @@
 		7240525E1F2016660007944D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		724052601F2016660007944D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		726393C12540D46E0031011D /* MTS Example.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "MTS Example.entitlements"; sourceTree = "<group>"; };
+		72773F9A25B8E89D0021C36B /* MulticastDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MulticastDelegate.swift; sourceTree = "<group>"; };
+		72773F9B25B8E89D0021C36B /* MTSExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MTSExtensions.swift; sourceTree = "<group>"; };
+		72773F9C25B8E89D0021C36B /* MTSManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MTSManager.swift; sourceTree = "<group>"; };
+		72773F9D25B8E89D0021C36B /* MTSBeacon.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MTSBeacon.swift; sourceTree = "<group>"; };
 		72985A9F20351D3F00022AF1 /* ExampleViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleViewController.swift; sourceTree = "<group>"; };
-		72985AA12036252500022AF1 /* MulticastDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MulticastDelegate.swift; sourceTree = "<group>"; };
-		72CE9AD624E8600B000CDCB1 /* MTSExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MTSExtensions.swift; path = mts/MTSExtensions.swift; sourceTree = SOURCE_ROOT; };
-		72CE9AD724E8600B000CDCB1 /* MTSManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MTSManager.swift; path = mts/MTSManager.swift; sourceTree = SOURCE_ROOT; };
-		72CE9AD824E8600B000CDCB1 /* MTSBeacon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MTSBeacon.swift; path = mts/MTSBeacon.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,20 +57,12 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		3CA89F8253AFDF4CF5A57699 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		724052481F2016660007944D = {
 			isa = PBXGroup;
 			children = (
 				724052531F2016660007944D /* mts_example */,
-				72552A48202683CB0070ABC5 /* mts */,
+				72773F9925B8E89D0021C36B /* mts */,
 				724052521F2016660007944D /* Products */,
-				3CA89F8253AFDF4CF5A57699 /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -96,17 +88,16 @@
 			path = mts_example;
 			sourceTree = "<group>";
 		};
-		72552A48202683CB0070ABC5 /* mts */ = {
+		72773F9925B8E89D0021C36B /* mts */ = {
 			isa = PBXGroup;
 			children = (
-				72985AA12036252500022AF1 /* MulticastDelegate.swift */,
-				72CE9AD824E8600B000CDCB1 /* MTSBeacon.swift */,
-				72CE9AD624E8600B000CDCB1 /* MTSExtensions.swift */,
-				72CE9AD724E8600B000CDCB1 /* MTSManager.swift */,
+				72773F9A25B8E89D0021C36B /* MulticastDelegate.swift */,
+				72773F9B25B8E89D0021C36B /* MTSExtensions.swift */,
+				72773F9C25B8E89D0021C36B /* MTSManager.swift */,
+				72773F9D25B8E89D0021C36B /* MTSBeacon.swift */,
 			);
-			name = mts;
-			path = ../../../../Users/mandersen/Documents/Cove/Greektown/greektown/software/gt_connect_ios/example/mts;
-			sourceTree = DEVELOPER_DIR;
+			path = mts;
+			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -141,9 +132,8 @@
 				TargetAttributes = {
 					724052501F2016660007944D = {
 						CreatedOnToolsVersion = 8.3.3;
-						DevelopmentTeam = 7BC4LV582K;
 						LastSwiftMigration = 1130;
-						ProvisioningStyle = Automatic;
+						ProvisioningStyle = Manual;
 					};
 				};
 			};
@@ -184,11 +174,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				72985AA020351D3F00022AF1 /* ExampleViewController.swift in Sources */,
-				72CE9ADA24E8600B000CDCB1 /* MTSManager.swift in Sources */,
-				72CE9AD924E8600B000CDCB1 /* MTSBeacon.swift in Sources */,
 				724052551F2016660007944D /* AppDelegate.swift in Sources */,
-				72985AA22036252600022AF1 /* MulticastDelegate.swift in Sources */,
-				72CE9ADB24E8600B000CDCB1 /* MTSExtensions.swift in Sources */,
+				72773F9F25B8E89D0021C36B /* MTSExtensions.swift in Sources */,
+				72773F9E25B8E89D0021C36B /* MulticastDelegate.swift in Sources */,
+				72773FA125B8E89D0021C36B /* MTSBeacon.swift in Sources */,
+				72773FA025B8E89D0021C36B /* MTSManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -335,9 +325,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "mts_example/MTS Example.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 23;
-				DEVELOPMENT_TEAM = 7BC4LV582K;
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 24;
+				DEVELOPMENT_TEAM = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -360,9 +350,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "mts_example/MTS Example.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 23;
-				DEVELOPMENT_TEAM = 7BC4LV582K;
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 24;
+				DEVELOPMENT_TEAM = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",

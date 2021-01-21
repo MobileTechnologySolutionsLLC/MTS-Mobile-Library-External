@@ -1,6 +1,6 @@
 //
 //
-//  Copyright © 2020 Mobile Technology Solutions, Inc. All rights reserved.
+//  Copyright © 2021 Mobile Technology Solutions, Inc. All rights reserved.
 //
 
 import UIKit
@@ -17,19 +17,29 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     @IBOutlet var lastWriteAtLabel: UILabel?
     @IBOutlet var writeCardDataButton: UIButton?
     @IBOutlet var terminalKindLabel: UILabel?
-    @IBOutlet var stickyConnectionLabel: UILabel?
     @IBOutlet var cardDataLabel: UILabel?
     @IBOutlet var sentinelSegmentedControl: UISegmentedControl?
-    @IBOutlet var connectedRSSILabel: UILabel?
-
+    @IBOutlet var connectedRSSILabel1: UILabel?
+    @IBOutlet var connectedRSSILabel2: UILabel?
+    @IBOutlet var connectedTerminalPeripheralIdentifier: UILabel?
+    @IBOutlet var connectedTerminalMfgDataLabel: UILabel?
+    @IBOutlet var sasSerialNumberLabel: UILabel?
+    @IBOutlet var locationLabel: UILabel?
+    @IBOutlet var assetNumberLabel: UILabel?
+    @IBOutlet var denominationLabel: UILabel?
+    @IBOutlet var gmiLinkActiveLabel: UILabel?
+    
     let mtsManager = MTSManager.sharedInstance
     let statusCellIndexPath = IndexPath(row: 0, section: 0)
-    var lastConnectionStatus = BluetoothConnectionState.notReady
+    let firstSectionIndexSet: IndexSet = [0]
     var waitingForBLEPostWriteRead = false
+    
+    var mtsBeacon1: MTSBeacon?
+    var mtsBeacon2: MTSBeacon?
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        mtsManager.loggingEnabled = false
+        mtsManager.loggingEnabled = true
         mtsManager.delegate.addDelegate(self)
         addToolbarToNumberPads()
         updateInterface()
@@ -39,7 +49,7 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
     }
-    
+        
     func updateInterface() {
         headerVersionLabel?.text = versionString
         autoConnectThresholdTextField?.text = String(mtsManager.autoConnectRSSIThreshold)
@@ -48,25 +58,46 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         scanTimeoutTextField?.text = String(mtsManager.scanTimeoutInterval)
         sentinelSegmentedControl?.selectedSegmentIndex = mtsManager.sentinelState
         updateCardDataInputStates()
-        if .connected != mtsManager.bluetoothConnectionState {
-            connectedRSSILabel?.text = MTSConstants.noValuePlaceholder
+        updateConnectedTerminalIdentifiers()
+        
+        if nil == mtsBeacon1 {
+            connectedRSSILabel1?.text = MTSConstants.noValuePlaceholder
+        }
+
+        if nil == mtsBeacon2 {
+            connectedRSSILabel2?.text = MTSConstants.noValuePlaceholder
+        }
+    }
+    
+    func updateConnectedTerminalIdentifiers() {
+        if let beacon = mtsBeacon1 {
+            connectedTerminalPeripheralIdentifier?.text = "ID: \(beacon.peripheral.identifier.uuidString)"
+            connectedTerminalMfgDataLabel?.text = "MFG: \(beacon.manufacturerData?.hex ?? MTSConstants.noValuePlaceholder)"
+        } else {
+            connectedTerminalPeripheralIdentifier?.text = MTSConstants.noValuePlaceholder
+            connectedTerminalMfgDataLabel?.text = MTSConstants.noValuePlaceholder
         }
     }
     
     func updateCardDataInputStates() {
         let cardData = mtsManager.cardData
         let isValid = mtsManager.isValidCardData(cardData)
-        let isConnected = .connected == mtsManager.bluetoothConnectionState
+        let isBLEConnected = nil != mtsBeacon1
+        let isConnected = isBLEConnected
         writeCardDataButton?.isEnabled =  isValid && isConnected
         if isValid {
             lastWriteAtLabel?.textColor = UIColor.label
             cardDataTextField?.textColor = UIColor.label
             if isConnected {
                 lastWriteAtLabel?.text = "Ready to write card data."
-                writeCardDataButton?.setTitle("Write", for: .normal)
+                if isBLEConnected {
+                    writeCardDataButton?.setTitle("Write to BLE", for: .normal)
+                } else {
+                    writeCardDataButton?.setTitle("Write", for: .normal)
+                }
             } else {
                 lastWriteAtLabel?.textColor = .red
-                lastWriteAtLabel?.text = "Connect BLE to write card data."
+                lastWriteAtLabel?.text = "Connect BLE or MFi to write card data."
             }
             
         } else {
@@ -117,11 +148,48 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     // MARK: UITableViewController
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = super.tableView(tableView, cellForRowAt: indexPath)
-        guard indexPath == statusCellIndexPath else {
+        var cell = super.tableView(tableView, cellForRowAt: indexPath)
+        guard statusCellIndexPath.section == indexPath.section else {
             return cell
         }
-        switch mtsManager.bluetoothConnectionState {
+        switch indexPath.row {
+        case 0:
+            if nil != mtsBeacon1 {
+                cell.textLabel?.text = "Connected"
+                cell.detailTextLabel?.text = "Disconnect"
+            } else {
+                cell = updateCellForState(cell: cell)
+            }
+            
+        case 1:
+            if nil != mtsBeacon2 {
+                cell.textLabel?.text = "Connected"
+                cell.detailTextLabel?.text = "Disconnect"
+            } else {
+                cell = updateCellForState(cell: cell)
+            }
+            
+        default:
+            return cell
+        }
+        
+        return cell
+    }
+    
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        // Don't show the second beacon row unless the first is already connected.
+        if 0 == section && nil == mtsBeacon1 && nil == mtsBeacon2 {
+            return 1
+        }
+        // Normal case
+        else {
+            return super.tableView(tableView, numberOfRowsInSection: section)
+        }
+    }
+    
+    func updateCellForState(cell: UITableViewCell) -> UITableViewCell {
+
+        switch mtsManager.bluetoothDiscoveryState {
         case .notReady:
             cell.textLabel?.text = "Not Ready"
             cell.detailTextLabel?.text = "Open Bluetooth Settings"
@@ -131,65 +199,111 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         case .scanning:
             cell.textLabel?.text = "Scanning"
             cell.detailTextLabel?.text = "Stop Scanning"
-        case .connected:
-            cell.textLabel?.text = "Connected"
-            cell.detailTextLabel?.text = "Disconnect"
-        case .attemptingToReconnect:
-            cell.textLabel?.text = "Attempting Reconnect"
-            cell.detailTextLabel?.text = "Disconnect"
         }
         return cell
     }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        guard indexPath == statusCellIndexPath else {
+        
+        guard statusCellIndexPath.section == indexPath.section else {
             return
         }
-        switch mtsManager.bluetoothConnectionState {
-        case .notReady:
-            openBluetoothSettings()
-        case .inactive:
-            mtsManager.startScanning()
-        case .scanning:
-            mtsManager.stopScanning()
-        case .connected:
-            mtsManager.disconnect()
-        case .attemptingToReconnect:
-            mtsManager.disconnect()
-        }
-    }
 
+        switch indexPath.row {
+        case 0:
+            if let mtsBeacon1 = mtsBeacon1 {
+                mtsManager.disconnect(mtsBeacon: mtsBeacon1)
+            } else {
+                switch mtsManager.bluetoothDiscoveryState {
+                case .notReady:
+                    openBluetoothSettings()
+                case .inactive:
+                    mtsManager.startScanning()
+                case .scanning:
+                    mtsManager.stopScanning()
+                }
+            }
+
+        case 1:
+            if let mtsBeacon2 = mtsBeacon2 {
+                mtsManager.disconnect(mtsBeacon: mtsBeacon2)
+            } else {
+                switch mtsManager.bluetoothDiscoveryState {
+                case .notReady:
+                    openBluetoothSettings()
+                case .inactive:
+                    mtsManager.startScanning()
+                case .scanning:
+                    mtsManager.stopScanning()
+                }
+            }
+        default:
+            break
+        }
+
+    }
     
     //MARK: MTSManagerDelegate - Bluetooth Example
-
-    func bluetoothConnectionStateChanged() {
+    func bluetoothDiscoveryStateChanged(oldState: BluetoothDiscoveryState, newState: BluetoothDiscoveryState) {
         tableView.reloadData()
-        if .connected == mtsManager.bluetoothConnectionState {
+    }
+    
+    func bluetoothConnectionEvent(bluetoothEvent: BluetoothConnectionEvent, mtsBeacon: MTSBeacon?) {
+        updateDisplayBeacons(event: bluetoothEvent, mtsBeacon: mtsBeacon)
+        
+        if .connect == bluetoothEvent, let mtsBeacon = mtsBeacon {
             playConnectSound()
-            writeExampleCardData()
+            writeExampleCardData(mtsBeacon: mtsBeacon)
         }
-        else if .scanning  == mtsManager.bluetoothConnectionState &&
-                .connected == lastConnectionStatus
-        {
+        else if .disconnect == bluetoothEvent {
             playDisconnectSound()
             cardDataTextField?.text = mtsManager.cardData
             lastWriteAtLabel?.textColor = .black
             lastWriteAtLabel?.text = "Last write: none since connect."
         }
         waitingForBLEPostWriteRead = false
-        lastConnectionStatus = mtsManager.bluetoothConnectionState
         updateCardDataInputStates()
-    }
-
-    func writeExampleCardData() {
-        // Example flow for MTSManagerDelegate.  Just demonstrates delegate callbacks.
-        writeCardDataToBeacon()
+        updateConnectedTerminalIdentifiers()
+        tableView.reloadData()
     }
     
-    func writeCardDataToBeacon() {
+
+    // Likely not relevant to customer implementation, but what is happening here:
+    // Demo support is requested for 0-2 two beacon connections, so find conditional rather than array handling in this example.
+    // The first beacon to connect is assigned mtsBeacon1.
+    // Only if a new beacon is connected while mtsBeacon1 is already assigned do we assign the new beacon to mtsBeacon2.
+    func updateDisplayBeacons(event: BluetoothConnectionEvent, mtsBeacon: MTSBeacon?) {
+        
+        switch event {
+        case .connect:
+            if nil == mtsBeacon1 {
+                mtsBeacon1 = mtsBeacon
+            } else if nil == mtsBeacon2 {
+                mtsBeacon2 = mtsBeacon
+            } else {
+                NSLog("\(#function) unexpected assignment of more than two connected beacons.")
+            }
+        case .disconnect:
+            if mtsBeacon == mtsBeacon1 {
+                mtsBeacon1 = nil
+            } else if mtsBeacon == mtsBeacon2 {
+                mtsBeacon2 = nil
+            } else {
+                NSLog("\(#function) unexpected disconnect of an untracked beacon.")
+            }
+        }
+        tableView.reloadData()
+    }
+    
+    func writeExampleCardData(mtsBeacon: MTSBeacon) {
+        // Example flow for MTSManagerDelegate.  Just demonstrates delegate callbacks.
+        writeCardDataToBeacon(mtsBeacon)
+    }
+    
+    func writeCardDataToBeacon(_ mtsBeacon: MTSBeacon) {
         do {
-            try mtsManager.writeCardDataToBluetooth(cardDataString: mtsManager.cardData)
+            try mtsManager.writeCardDataToBluetooth(cardDataString: mtsManager.cardData, mtsBeacon: mtsBeacon)
         } catch MTSError.invalidCardDataCharacterCount(let requiredCount) {
             NSLog("\(#function) The cardData parameter character count must be \(requiredCount.description) digits.")
         } catch {
@@ -197,19 +311,23 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         }
     }
     
-    func didWriteCardDataToBluetooth(error: Error?) {
+    func receivedTerminalId(terminalId: String) {
+        NSLog("\(#function) terminalId: \(terminalId)")
+    }
+    
+    func didWriteCardDataToBluetooth(error: Error?, mtsBeacon: MTSBeacon) {
         if nil == error {
             NSLog("\(#function) waitingForBLEPostWriteRead")
             waitingForBLEPostWriteRead = true
-            mtsManager.requestCardData()
+            mtsManager.requestCardData(mtsBeacon: mtsBeacon)
         } else {
             NSLog("\(#function) Failed due to error: \(String(describing: error?.localizedDescription))")
         }
     }
     
-    func receivedCardData(data: Data) {
+    func receivedCardData(cardData: Data, mtsBeacon: MTSBeacon) {
         
-        cardDataLabel?.text = data.hex
+        cardDataLabel?.text = cardData.hex
                 
         // 5. Receive a delegate callback from the player ID request.
         guard waitingForBLEPostWriteRead else {
@@ -218,7 +336,7 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         }
         waitingForBLEPostWriteRead = false
         let receivedAtString = dateFormatter.string(from: Date())
-        lastWriteAtLabel?.textColor = .black
+        lastWriteAtLabel?.textColor = .secondaryLabel
         lastWriteAtLabel?.text = "Last successful BLE write: \(receivedAtString)."
     }
 
@@ -228,24 +346,60 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         formatter.dateFormat = "yyyy-MM-dd' 'HH:mm:ss"
         return formatter
     }()
-    
-    func receivedStickyConnectionState(isSticky: Bool) {
-        stickyConnectionLabel?.text = isSticky ? "Yes" : "No"
-    }
-    
-    func receivedTerminalKind(kind: MTSBeacon.TerminalKind) {
+        
+    func receivedTerminalKind(kind: MTSBeacon.TerminalKind, mtsBeacon: MTSBeacon) {
+        guard mtsBeacon == mtsBeacon1 else { return }
         terminalKindLabel?.text = kind.description
     }
     
-    func updateOnConnectedRSSIReceipt(rssi: Int) {
-        connectedRSSILabel?.text = "\(rssi)"
-    }
+    func updateOnConnectedRSSIReceipt(rssi: Int, mtsBeacon: MTSBeacon) {
+        switch mtsBeacon {
+        case mtsBeacon1:
+            connectedRSSILabel1?.text = "\(rssi)"
+        case mtsBeacon2:
+            connectedRSSILabel2?.text = "\(rssi)"
+        default:
+            break
+        }
+        
+        if nil == mtsBeacon1 {
+            connectedRSSILabel1?.text = MTSConstants.noValuePlaceholder
+        }
 
+        if nil == mtsBeacon2 {
+            connectedRSSILabel2?.text = MTSConstants.noValuePlaceholder
+        }
+    }
+    
+    func receivedSasSerialNumber(serialNumber: String?, mtsBeacon: MTSBeacon) {
+        guard mtsBeacon == mtsBeacon1 else { return }
+        sasSerialNumberLabel?.text = serialNumber ?? MTSConstants.noValuePlaceholder
+    }
+    
+    func receivedLocation(location: String?, mtsBeacon: MTSBeacon) {
+        guard mtsBeacon == mtsBeacon1 else { return }
+        locationLabel?.text = location ?? MTSConstants.noValuePlaceholder
+    }
+    
+    func receivedAssetNumber(assetNumber: UInt32, mtsBeacon: MTSBeacon) {
+        guard mtsBeacon == mtsBeacon1 else { return }
+        assetNumberLabel?.text = String(assetNumber)
+    }
+    
+    func receivedDenomination(denomination: UInt32, mtsBeacon: MTSBeacon) {
+        guard mtsBeacon == mtsBeacon1 else { return }
+        denominationLabel?.text = String(denomination)
+    }
+    
+    func receivedGmiLinkActive(isActive: Bool, mtsBeacon: MTSBeacon) {
+        guard mtsBeacon == mtsBeacon1 else { return }
+        gmiLinkActiveLabel?.text = isActive ? "Active" : "Inactive"
+    }
+    
     
     // MARK: Connect/Disconnect Sounds
     
     public func playConnectSound() {
-        NSLog("\(#function)")
         let systemSoundID: SystemSoundID = 1115
         AudioServicesPlaySystemSound(systemSoundID)
     }
@@ -306,21 +460,18 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     @IBAction func scanDurationTextFieldEditingDidChange(_ textField: UITextField) {
         let text = textField.text ?? ""
         let duration = Int(text) ?? 0
-        NSLog("\(#function) assigning mtsManager.scanTimeoutInterval: \(duration)")
         mtsManager.scanTimeoutInterval = duration
         updateInterface()
     }
 
     @IBAction func cardDataTextFieldEditingDidChange(_ textField: UITextField) {
-        NSLog("\(#function) textField: \(textField)")
         mtsManager.cardData = textField.text ?? ""
         updateInterface()
     }
 
     @IBAction func touchUpInsideCardDataButton(_ sender: Any) {
-        let isBLEConnected = .connected == mtsManager.bluetoothConnectionState
-        if isBLEConnected {
-            writeCardDataToBeacon()
+        if let mtsBeacon1 = mtsBeacon1 {
+            writeCardDataToBeacon(mtsBeacon1)
         }
     }
 
@@ -332,5 +483,5 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
 
 // Helper function inserted by Swift 4.2 migrator.
 fileprivate func convertToUIApplicationOpenExternalURLOptionsKeyDictionary(_ input: [String: Any]) -> [UIApplication.OpenExternalURLOptionsKey: Any] {
-	return Dictionary(uniqueKeysWithValues: input.map { key, value in (UIApplication.OpenExternalURLOptionsKey(rawValue: key), value)})
+    return Dictionary(uniqueKeysWithValues: input.map { key, value in (UIApplication.OpenExternalURLOptionsKey(rawValue: key), value)})
 }
