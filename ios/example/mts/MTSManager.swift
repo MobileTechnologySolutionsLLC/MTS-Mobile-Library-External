@@ -65,7 +65,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     public let delegate = MulticastDelegate<MTSManagerDelegate>()
     public var bluetoothDiscoveryState = BluetoothDiscoveryState.notReady
     public var loggingEnabled = true
-    public let cardDataCharacterCountMax = 195 // 195 automatic null termination, so 196 total accepted by the peripheral.
+    public let cardDataCharacterCountMax = 195 // 195 + automatic null termination, so 196 total accepted by the peripheral.
     
     // MARK: Private Properties
     
@@ -128,7 +128,8 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         }
         // TODO: Evaluate whether prior fw is in use which will not be updated to include all
         // characteristics.  If all deployed mtsBeacons will support all characteristics, it
-        // is preferable to include them all in this list.  Why:
+        // is preferable to include them all in this list.  Why: ensure characteristic
+        // discovery completes prior to read/write attempts.
         static let requiredCharacteristics = [cardData, terminalKind, userDisconnected]
     }
 
@@ -178,53 +179,21 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         
         peripheral.writeValue(data, for: characteristic, type: .withResponse)
     }
-    
 
     // https://github.com/MobileTechnologySolutionsLLC/dpc-mobile/issues/5
     // https://github.com/MobileTechnologySolutionsLLC/gt-connect/blob/develop/firmware/gt_ble/Readme.md
     // https://github.com/MobileTechnologySolutionsLLC/dpc-mobile/issues/3
+    // TODO: Consider character vs byte count requirement given UTF-8.  Status quo assumes 1-1.
     private func validatedCardData(cardData: String) throws -> Data {
-        
         guard isValidCardData(cardData) else {
             throw MTSError.invalidCardDataCharacterCount(cardDataCharacterCountMax)
         }
 
-        var sentinels: SentinelState = .noSentinels
-        if let state = SentinelState(rawValue: sentinelState) {
-            sentinels = state
-        }
-        
-        var max = cardDataCharacterCountMax
-        if .noSentinels != sentinels {
-            max -= 2
-        }
-        
-        let truncatedString = String(cardData.prefix(max))
-        
-        let track1StartSentinel = "%"
-        let track2StartSentinel   = ":"
-        let endSentinel   = "?"
-        var wrappedString = ""
-        
-       switch sentinels {
-        case .track1:
-            wrappedString.append(track1StartSentinel)
-            wrappedString.append(truncatedString)
-            wrappedString.append(endSentinel)
-        case .track2:
-            wrappedString.append(track2StartSentinel)
-            wrappedString.append(truncatedString)
-            wrappedString.append(endSentinel)
-        case .noSentinels:
-            wrappedString.append(truncatedString)
-        }
-        
+        let truncatedString = String(cardData.prefix(cardDataCharacterCountMax))
         guard let data = truncatedString.data(using: .utf8) else {
             throw MTSError.writeFailure(description: "String conversion to UTF-8 failed.")
         }
         let terminatedData = data + Data([0x0])
-                
-        NSLog("\(#function)  data: \(terminatedData.hex))")
         
         // N.B. the cardData string won't log to Xcode console as a string due to %.
         logIfEnabled("\(#function) data: \(terminatedData.hex))")
@@ -232,7 +201,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     }
     
     public func isValidCardData(_ cardDataString: String) -> Bool {
-        return cardDataCharacterCountMax >= cardData.count
+        return cardDataCharacterCountMax >= cardDataString.count
     }
     
     //MARK: Setup
@@ -677,7 +646,6 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
            }
            return nil
        }
-
     
     public func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
             logIfEnabled("\(#function) \(String(describing:characteristic.uuid.uuidString)) error: \(String(describing: error?.localizedDescription))")
@@ -904,30 +872,6 @@ public extension MTSManager {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: UserDefaultKey.scanTimeoutInterval.rawValue)
-        }
-    }
-
-    var cardData: String {
-        get {
-            return UserDefaults.standard.string(forKey: UserDefaultKey.cardData.rawValue) ?? ""
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: UserDefaultKey.cardData.rawValue)
-        }
-    }
-    
-    enum SentinelState: Int {
-        case track1 = 0 // %
-        case track2 = 1 // :
-        case noSentinels = 2
-    }
-    
-    var sentinelState: Int {
-        get {
-            return UserDefaults.standard.integer(forKey: UserDefaultKey.sentinelState.rawValue)
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: UserDefaultKey.sentinelState.rawValue)
         }
     }
     

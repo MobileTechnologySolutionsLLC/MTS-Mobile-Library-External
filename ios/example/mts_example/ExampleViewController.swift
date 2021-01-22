@@ -18,7 +18,6 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     @IBOutlet var writeCardDataButton: UIButton?
     @IBOutlet var terminalKindLabel: UILabel?
     @IBOutlet var cardDataLabel: UILabel?
-    @IBOutlet var sentinelSegmentedControl: UISegmentedControl?
     @IBOutlet var connectedRSSILabel1: UILabel?
     @IBOutlet var connectedRSSILabel2: UILabel?
     @IBOutlet var connectedTerminalPeripheralIdentifier: UILabel?
@@ -43,7 +42,6 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         mtsManager.delegate.addDelegate(self)
         addToolbarToNumberPads()
         updateInterface()
-        cardDataTextField?.text = mtsManager.cardData
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -56,7 +54,6 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         autoDisconnectThresholdTextField?.text = String(mtsManager.autoDisconnectRSSIThreshold)
         autoDisconnectIntervalTextField?.text = String(mtsManager.autoDisconnectInterval)
         scanTimeoutTextField?.text = String(mtsManager.scanTimeoutInterval)
-        sentinelSegmentedControl?.selectedSegmentIndex = mtsManager.sentinelState
         updateCardDataInputStates()
         updateConnectedTerminalIdentifiers()
         
@@ -80,8 +77,10 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     }
     
     func updateCardDataInputStates() {
-        let cardData = mtsManager.cardData
-        let isValid = mtsManager.isValidCardData(cardData)
+        var isValid = false
+        if let cardData = cardDataTextField?.text {
+            isValid = mtsManager.isValidCardData(cardData)
+        }
         let isBLEConnected = nil != mtsBeacon1
         let isConnected = isBLEConnected
         writeCardDataButton?.isEnabled =  isValid && isConnected
@@ -101,7 +100,7 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
             }
             
         } else {
-            if 0 == cardData.count {
+            if 0 == (cardDataTextField?.text?.count ?? 0) {
                 lastWriteAtLabel?.text = ""
             } else {
                 lastWriteAtLabel?.text = "Valid Card Data is \(mtsManager.cardDataCharacterCountMax) digits."
@@ -258,7 +257,6 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         }
         else if .disconnect == bluetoothEvent {
             playDisconnectSound()
-            cardDataTextField?.text = mtsManager.cardData
             lastWriteAtLabel?.textColor = .black
             lastWriteAtLabel?.text = "Last write: none since connect."
         }
@@ -302,8 +300,12 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     }
     
     func writeCardDataToBeacon(_ mtsBeacon: MTSBeacon) {
+        guard let cardDataString = cardDataTextField?.text else {
+            NSLog("\(#function) called with nil cardDataTextField.")
+            return
+        }
         do {
-            try mtsManager.writeCardDataToBluetooth(cardDataString: mtsManager.cardData, mtsBeacon: mtsBeacon)
+            try mtsManager.writeCardDataToBluetooth(cardDataString: cardDataString, mtsBeacon: mtsBeacon)
         } catch MTSError.invalidCardDataCharacterCount(let requiredCount) {
             NSLog("\(#function) The cardData parameter character count must be \(requiredCount.description) digits.")
         } catch {
@@ -465,7 +467,6 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     }
 
     @IBAction func cardDataTextFieldEditingDidChange(_ textField: UITextField) {
-        mtsManager.cardData = textField.text ?? ""
         updateInterface()
     }
 
@@ -475,10 +476,6 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         }
     }
 
-    @IBAction func sentinelSegmentedControlChanged(_ sender: UISegmentedControl) {
-        mtsManager.sentinelState = sender.selectedSegmentIndex
-    }
-    
 }
 
 // Helper function inserted by Swift 4.2 migrator.
