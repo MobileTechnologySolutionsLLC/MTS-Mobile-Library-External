@@ -1465,11 +1465,11 @@ public class BluetoothPeripheral {
             public void run() {
                 if (isConnected()) {
                     if (!bluetoothGatt.readRemoteRssi()) {
-                        //Timber.e("readRemoteRssi failed");
+                        System.out.println("readRemoteRssi failed");
                         completedCommand();
                     }
                 } else {
-                    //Timber.e("cannot get rssi, peripheral not connected");
+                    System.out.println("cannot get rssi, peripheral not connected");
                     completedCommand();
                 }
             }
@@ -1478,7 +1478,7 @@ public class BluetoothPeripheral {
         if (result) {
             nextCommand();
         } else {
-            //Timber.e("could not enqueue setNotify command");
+            System.out.println("could not enqueue setNotify command");
         }
 
         return result;

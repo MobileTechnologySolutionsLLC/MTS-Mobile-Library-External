@@ -18,6 +18,11 @@ import android.os.ParcelUuid;
 import android.os.SystemClock;
 import android.util.Log;
 
+import org.greenrobot.eventbus.EventBus;
+
+import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,55 +35,54 @@ import static android.bluetooth.BluetoothGatt.CONNECTION_PRIORITY_HIGH;
 import static android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT;
 import static com.mts.mts.BluetoothPeripheral.GATT_SUCCESS;
 import static com.mts.mts.BluetoothPeripheral.STATE_CONNECTED;
-import static com.mts.mts.BluetoothPeripheral.STATE_CONNECTING;
-import static com.mts.mts.MTSService.BluetoothConnectionState.attemptingToReconnect;
-import static com.mts.mts.MTSService.BluetoothConnectionState.connected;
-import static com.mts.mts.MTSService.BluetoothConnectionState.inactive;
-import static com.mts.mts.MTSService.BluetoothConnectionState.notReady;
-import static com.mts.mts.MTSService.BluetoothConnectionState.scanning;
 
 public class MTSService extends Service {
 
-    // Intent Types
-    public final static String BluetoothConnectionStateChanged =
-            "com.mts.BluetoothConnectionStateChanged";
-    public final static String DidReceiveTerminalKind =
-            "com.mts.DidReceiveTerminalKind";
-    public final static String DidReceiveCardData =
-            "com.mts.DidReceiveCardData";
-    public final static String DidWriteCardDataToBluetooth =
-            "com.mts.DidWriteCardDataToBluetooth ";
-    public final static String DidReceiveStickyConnectionState =
-            "com.mts.DidReceiveStickyConnectionState";
-    public final static String ReconnectAttemptTimedOut =
-            "com.mts.ReconnectAttemptTimedOut";
-    public final static String UpdateOnConnectedRSSIReceipt =
-            "com.mts.UpdateOnConnectedRSSIReceipt";
-
-    public enum BluetoothConnectionState {
+    public enum BluetoothDiscoveryState {
         notReady,
         inactive,
-        scanning,
-        connected,
-        attemptingToReconnect,
+        scanning
+    }
+
+    public enum BluetoothConnectionEvent {
+        connect,
+        disconnect,
+    }
+
+    public enum MTSEventType {
+        didReceiveTerminalKind,
+        didReceiveCardData,
+        didWriteCardDataToBluetooth,
+        updateOnConnectedRSSIReceipt,
+        didReceiveSasSerialNumber,
+        didReceiveLocation,
+        didReceiveAssetNumber,
+        didReceiveDenomination,
+        didReceiveGmiLinkActive
     }
 
     public MTSService() {
         super();
     }
-    public BluetoothConnectionState bluetoothConnectionState = notReady;
-    public MTSBeacon connectedMTSBeacon;
+    public BluetoothDiscoveryState bluetoothDiscoveryState = BluetoothDiscoveryState.notReady;
+    public ArrayList<MTSBeacon> connectedMTSBeacons = new ArrayList<MTSBeacon>();
     public ArrayList<MTSBeacon> detectedBeacons = new ArrayList<MTSBeacon>();
 
     private final static String TAG = "MTSService";
 
     public int cardDataCharacterCountMax = 195; // 195 + automatic null termination, so 196 total accepted by the peripheral.
     private int kRSSIUnavailableValue = 127;
-    private UUID mtsServiceUUID = UUID.fromString("C1FB6CDA-3F15-4BC0-8A46-8E9C341065F8");
+    private UUID mtsServiceUUID         = UUID.fromString("C1FB6CDA-3F15-4BC0-8A46-8E9C341065F8");
+    private UUID machineInfoServiceUUID = UUID.fromString("C83FE52E-0AB5-49D9-9817-98982B4C48A3");
     private ParcelUuid cardDataCharacteristicUUID = ParcelUuid.fromString("60D11359-FEB2-411D-A430-CA6167052BD6");
     private ParcelUuid terminalKindCharacteristicUUID = ParcelUuid.fromString("D308DFDE-9F06-4A73-A2C7-EB952E40A184");
     private ParcelUuid stickyConnectCharacteristicUUID = ParcelUuid.fromString("4B6A91D8-EA3E-42A4-B39B-B300F5F64C86");
     private ParcelUuid userDisconnectedCharacteristicUUID = ParcelUuid.fromString("4E3A829D-4830-47A0-995F-EE923710A469");
+    private ParcelUuid sasSerialNumberCharacteristicUUID = ParcelUuid.fromString("9D77E2CF-5D20-44EA-8D2F-A221B976C605");   // utf8s[41], read-only, 40 characters + required null termination.
+    private ParcelUuid locationCharacteristicUUID = ParcelUuid.fromString("42C458D7-86B9-4ED8-B57E-1352C7F5100A");  // utf8s[41], read-only, 40 characters + required null termination.
+    private ParcelUuid assetNumberCharacteristicUUID = ParcelUuid.fromString("D77A787D-E75D-4370-8CAC-6DCFE37DBB92");   // uint32, read-only.
+    private ParcelUuid denominationCharacteristicUUID = ParcelUuid.fromString("7B9432C6-465A-40FA-A13B-03544B6F0742");  // uint32, read-only, unit is cents.
+    private ParcelUuid gmiLinkActiveCharacteristicUUID = ParcelUuid.fromString("023B4A4A-579C-495F-A61E-D3BBBFD63C4A"); // bool, read/notify, cardreader's link state for it's GMI interface as active (0x01) or inactive (0x00).
 
     private BluetoothCentral central;
     private Context context;
@@ -185,8 +189,9 @@ public class MTSService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        System.out.println("MTSService onStartCommand");
         super.onStartCommand(intent, flags, startId);
-        changeBluetoothConnectionState(inactive);
+        changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
         return START_NOT_STICKY;
     }
 
@@ -203,8 +208,8 @@ public class MTSService extends Service {
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
         stopScanning();
+        super.onDestroy();
     }
 
 
@@ -214,13 +219,17 @@ public class MTSService extends Service {
     ArrayList<ParcelUuid> allCharacteristics = new ArrayList<ParcelUuid>(Arrays.asList(
             cardDataCharacteristicUUID,
             terminalKindCharacteristicUUID,
-            stickyConnectCharacteristicUUID,
-            userDisconnectedCharacteristicUUID
+            userDisconnectedCharacteristicUUID,
+            sasSerialNumberCharacteristicUUID,
+            locationCharacteristicUUID,
+            assetNumberCharacteristicUUID,
+            denominationCharacteristicUUID,
+            gmiLinkActiveCharacteristicUUID
         ));
 
-    private void handleCharacteristicDiscovery(BluetoothGattCharacteristic characteristic) {
+    private void handleCharacteristicDiscovery(BluetoothGattCharacteristic characteristic, BluetoothPeripheral peripheral) {
         markCharacteristicDiscovered(characteristic);
-        isCharacteristicDiscoveryDone();
+        isCharacteristicDiscoveryDone(peripheral);
     }
 
     private void markCharacteristicDiscovered(BluetoothGattCharacteristic characteristic) {
@@ -228,12 +237,16 @@ public class MTSService extends Service {
         requiredCharacteristics.remove(parcelUuid);
     }
 
-
-    private void isCharacteristicDiscoveryDone() {
-        if (0 == requiredCharacteristics.size() && scanning == bluetoothConnectionState) {
-            changeBluetoothConnectionState(connected);
+    private void isCharacteristicDiscoveryDone(BluetoothPeripheral peripheral) {
+        if (0 == requiredCharacteristics.size() && BluetoothDiscoveryState.scanning == bluetoothDiscoveryState) {
+            MTSBeacon mtsBeacon = connectedMTSBeaconFromPeripheral(peripheral);
+            if (null != mtsBeacon) {
+                bluetoothConnectionEventOccurred(BluetoothConnectionEvent.connect, mtsBeacon);
+            } else {
+                Log.v("", "Characteristic discovery is complete, but no matching MTSBeacon in connectedMTSBeacons.");
+            }
         } else {
-            Log.v("","requiredCharacteristics.size(): " + requiredCharacteristics.size() + " bluetoothConnectionState: " + bluetoothConnectionState);
+            Log.v("","requiredCharacteristics.size(): " + requiredCharacteristics.size());
             if (requiredCharacteristics.size() <= 2) {
                 Log.v("","requiredCharacteristics: " + requiredCharacteristics.toString());
             }
@@ -246,15 +259,11 @@ public class MTSService extends Service {
         public void onServicesDiscovered(BluetoothPeripheral peripheral) {
             Log.v("","onServicesDiscovered");
             peripheral.requestConnectionPriority(CONNECTION_PRIORITY_HIGH);
-
-            BluetoothGattService service = peripheral.getService(mtsServiceUUID);
-            if(null == service) {
-                Log.v("","onServicesDiscovered failed at null == service.");
-                return;
-            }
-
-            for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
-                handleCharacteristicDiscovery(characteristic);
+            for (BluetoothGattService service : peripheral.getServices()) {
+                for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
+                    handleCharacteristicDiscovery(characteristic, peripheral);
+                    peripheral.readCharacteristic(characteristic);
+                }
             }
         }
 
@@ -266,14 +275,23 @@ public class MTSService extends Service {
         public void onCharacteristicWrite(BluetoothPeripheral peripheral, byte[] value, BluetoothGattCharacteristic characteristic, int status) {
             UUID characteristicUUID = characteristic.getUuid();
             if (cardDataCharacteristicUUID.getUuid().equals(characteristicUUID)) {
-                Log.v("","writeCardDataToBluetooth: event.wasSuccess(): " + (status == GATT_SUCCESS));
-                final Intent intent = new Intent(DidWriteCardDataToBluetooth);
-                intent.putExtra("DidWriteCardDataToBluetooth", status == GATT_SUCCESS);
-                sendBroadcast(intent);
+                Log.v("","writeCardDataToBluetooth: event.wasSuccess(): " + (status == GATT_SUCCESS) + " for value: "  + bytesToHex(value));
+                MTSBeacon mtsBeacon = connectedMTSBeaconFromPeripheral(peripheral);
+                if (null == mtsBeacon) { return; }
+                MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                        MTSEventType.didWriteCardDataToBluetooth,
+                        status == GATT_SUCCESS,
+                        mtsBeacon
+
+                );
+                EventBus.getDefault().post(messageEvent);
             } else if (userDisconnectedCharacteristicUUID.getUuid().equals(characteristicUUID)) {
                 if( status == GATT_SUCCESS) {
-                    connectedMTSBeacon = null;
-                    changeBluetoothConnectionState(inactive);
+                    MTSBeacon mtsBeacon = connectedMTSBeaconFromPeripheral(peripheral);
+                    if (null != mtsBeacon) {
+                        disconnectIfNeeded(mtsBeacon);
+                        bluetoothConnectionEventOccurred(BluetoothConnectionEvent.disconnect, mtsBeacon);
+                    }
                 }
             }
         }
@@ -281,7 +299,7 @@ public class MTSService extends Service {
         @Override
         public void onCharacteristicUpdate(BluetoothPeripheral peripheral, byte[] value, BluetoothGattCharacteristic characteristic, int status) {
             if(status != GATT_SUCCESS) return;
-            handleOnCharacteristicChanged(characteristic, value);
+            handleOnCharacteristicChanged(peripheral, characteristic, value);
         }
 
         @Override
@@ -293,43 +311,50 @@ public class MTSService extends Service {
         public void onReadRemoteRssi(final BluetoothPeripheral peripheral, int rssi, int status) {
             if (GATT_SUCCESS == status) {
 
-                if (null == connectedMTSBeacon) {
-                    Log.v("","onReadRemoteRssi: " + rssi +" returning early due to null == connectedMTSBeacon.");
+                MTSBeacon mtsBeacon = connectedMTSBeaconFromPeripheral(peripheral);
+                if (null == mtsBeacon) {
+                    Log.v("","onReadRemoteRssi: " + rssi +" returning early due to null == mtsBeacon.");
                     return;
                 }
-                evaluateVsAutoDisconnectThreshold(rssi);
+                evaluateVsAutoDisconnectThreshold(rssi, mtsBeacon);
 
                 // Broadcast the RSSI update
                 String connectedRSSIValue = "- - -";
-                final Intent intent = new Intent(UpdateOnConnectedRSSIReceipt);
                 connectedRSSIValue = String.valueOf(rssi);
-                Log.v(TAG, connectedRSSIValue);
-                intent.putExtra("connectedRSSIValue", connectedRSSIValue);
-                sendBroadcast(intent);
+
+                MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                        MTSEventType.updateOnConnectedRSSIReceipt,
+                        connectedRSSIValue,
+                        mtsBeacon
+                );
+                EventBus.getDefault().post(messageEvent);
+            } else {
+                Log.v("","onReadRemoteRssi failed with status: " + status);
             }
         }
 
     };
 
-    BluetoothPeripheral lastConnectedBluetoothPeripheral;
 
     // Callback for central
     private final BluetoothCentralCallback bluetoothCentralCallback = new BluetoothCentralCallback() {
 
         @Override
         public void onConnectedPeripheral(BluetoothPeripheral peripheral) {
-            //Timber.i("connected to '%s'", peripheral.getName());
-            requiredCharacteristics = allCharacteristics;
-            connectedMTSBeacon.peripheral = peripheral;
-            connectedMTSBeacon.peripheral.requestMtu(256);
+            //N.B. what does not happen here:
+            //1) the relationship between an MTSBeacon and BluetoothPeripheral
+            //2) bluetoothConnectionEventOccurred(...) callback
+            //Why: completion of the characteristic discovery process is when
+            //the beacon is ready for interaction.  Defer these until then.
 
-            // Disconnects intermittently fail or take unpredictable durations.
-            // The null == connectedMTSBeacon test is used to evaluate whether a discovered+connected
-            // peripheral is meant to be available to the user.  So we want connectedMTSBeacon to be
-            // null upon disconnect.  But it is also sometimes necessary to make additional disconnect
-            // attempts after the apparent completion of a disconnect.  Use this lastConnectedBluetoothPeripheral
-            // to make these fallback disconnect attempts;
-            lastConnectedBluetoothPeripheral = peripheral;
+            // If a deployment includes only beacons which support machineInfoServiceUUID, assign
+            // allCharacteristics rather than the partial set here.
+            requiredCharacteristics = new ArrayList<ParcelUuid>(Arrays.asList(
+                    cardDataCharacteristicUUID,
+                    terminalKindCharacteristicUUID,
+                    userDisconnectedCharacteristicUUID
+            ));
+            peripheral.requestMtu(256);
         }
 
         @Override
@@ -340,25 +365,28 @@ public class MTSService extends Service {
         @Override
         public void onDisconnectedPeripheral(final BluetoothPeripheral peripheral, final int status) {
             Log.v("","onDisconnectedPeripheral "+peripheral.getName()+" with status: "+status);
-            detectedBeacons.clear();
-            if (inactive == bluetoothConnectionState) {
-                return;
+            MTSBeacon mtsBeacon = connectedMTSBeaconFromPeripheral(peripheral);
+            if (null != mtsBeacon) {
+                connectedMTSBeacons.remove(mtsBeacon);
+            } else {
+                Log.v("","onDisconnectedPeripheral called for beacon already absent from connectedMTSBeacons.");
             }
-            connectedMTSBeacon = null;
-            changeBluetoothConnectionState(scanning);
+            bluetoothConnectionEventOccurred(BluetoothConnectionEvent.disconnect, mtsBeacon);
         }
 
         @Override
         public void onDiscoveredPeripheral(BluetoothPeripheral peripheral, ScanResult scanResult) {
             stopScanRestartTimer();
 
-            if (scanning != bluetoothConnectionState) {
+            if (BluetoothDiscoveryState.scanning != bluetoothDiscoveryState) {
+                System.out.println("onDiscoveredPeripheral " + peripheral.getName() + " returning early at BluetoothDiscoveryState.scanning != bluetoothDiscoveryState.");
                 return;
             }
 
             if (kRSSIUnavailableValue == scanResult.getRssi()) {
                 // Discard discovery events when the RSSI value is not available: the focus of this app is
                 // using duplicate discoveries to monitor RSSI changes, so a discovery without RSSI is not useful.
+                System.out.println("onDiscoveredPeripheral " + peripheral.getName() + " returning early at kRSSIUnavailableValue == scanResult.getRssi().");
                 return;
             }
 
@@ -370,12 +398,27 @@ public class MTSService extends Service {
         @Override
         public void onBluetoothAdapterStateChanged(int state) {
             if(state == BluetoothAdapter.STATE_ON) {
-                changeBluetoothConnectionState(scanning);
+                changeBluetoothDiscoveryState(BluetoothDiscoveryState.scanning);
             }
         }
     };
 
-    private void handleOnCharacteristicChanged(BluetoothGattCharacteristic characteristic, byte[] value) {
+    private MTSBeacon connectedMTSBeaconFromPeripheral(BluetoothPeripheral peripheral) {
+        for (MTSBeacon beacon : connectedMTSBeacons) {
+            if (peripheral.equals(beacon.peripheral)) {
+                return beacon;
+            }
+        }
+        return null;
+    }
+
+    private void handleOnCharacteristicChanged(BluetoothPeripheral peripheral, BluetoothGattCharacteristic characteristic, byte[] value) {
+
+        MTSBeacon mtsBeacon = connectedMTSBeaconFromPeripheral(peripheral);
+
+        if (null == mtsBeacon) {
+            Log.v(TAG, "handleOnCharacteristicChanged: null == mtsBeacon, no match in connectedMTSBeaconFromPeripheral.");
+        }
 
         byte[] characteristicBytes = characteristic.getValue();
 
@@ -384,142 +427,208 @@ public class MTSService extends Service {
             return;
         }
 
-        if (null == connectedMTSBeacon) {
-            Log.v(TAG, "handleOnCharacteristicChanged: null == connectedMTSBeacon");
-            return;
-        }
-
         UUID characteristicUUID = characteristic.getUuid();
         if (terminalKindCharacteristicUUID.getUuid().equals(characteristicUUID)) {
             String terminalKind = "- - -";
-            final Intent intent = new Intent(DidReceiveTerminalKind);
             terminalKind = new String(value, Charset.forName("UTF-8"));
             Log.v(TAG, "terminalKind: " + terminalKind);
-            intent.putExtra("terminalKind", terminalKind);
-            sendBroadcast(intent);
-        }
-        else if (stickyConnectCharacteristicUUID.getUuid().equals(characteristicUUID)) {
-            boolean wantsStickyConnection = false;
-            final Intent intent = new Intent(DidReceiveStickyConnectionState);
-            wantsStickyConnection = (value[0] == (byte)0x01);
-            if (null != connectedMTSBeacon) {
-                connectedMTSBeacon.wantsStickyConnection = wantsStickyConnection;
-            }
-            intent.putExtra("stickyConnectionState", wantsStickyConnection);
-            sendBroadcast(intent);
+            MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                    MTSEventType.didReceiveTerminalKind,
+                    terminalKind,
+                    mtsBeacon
+            );
+            EventBus.getDefault().post(messageEvent);
         }
         else if (cardDataCharacteristicUUID.getUuid().equals(characteristicUUID)) {
-            final Intent intent = new Intent(DidReceiveCardData);
+            Serializable cardData;
             if(null != value) {
-                String cardData = new String(value, Charset.forName("UTF-8"));
-                intent.putExtra("cardData",cardData);
+                cardData = new String(value, Charset.forName("UTF-8"));
+                System.out.println("handleOnCharacteristicChanged cardDataCharacteristicUUID cardDataString: " + cardData + " hex: " + bytesToHex(value));
             } else {
-                String empty = null;
-                intent.putExtra("cardData", empty);
+                cardData = null;
+                System.out.println("handleOnCharacteristicChanged cardDataCharacteristicUUID ");
             }
-            sendBroadcast(intent);
+            MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                    MTSEventType.didReceiveCardData,
+                    cardData,
+                    mtsBeacon
+            );
+            EventBus.getDefault().post(messageEvent);
         }
+        else if (sasSerialNumberCharacteristicUUID.getUuid().equals(characteristicUUID)) {
+            String sasSerialNumber = "- - -";
+            sasSerialNumber = new String(value, Charset.forName("UTF-8"));
+            Log.v(TAG, "sasSerialNumber: " + sasSerialNumber);
+            MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                    MTSEventType.didReceiveSasSerialNumber,
+                    sasSerialNumber,
+                    mtsBeacon
+            );
+            EventBus.getDefault().post(messageEvent);
+        }
+
+        else if (locationCharacteristicUUID.getUuid().equals(characteristicUUID)) {
+            String location = "- - -";
+            location = new String(value, Charset.forName("UTF-8"));
+            Log.v(TAG, "location: " + location);
+            MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                MTSEventType.didReceiveLocation,
+                location,
+                mtsBeacon
+            );
+            EventBus.getDefault().post(messageEvent);
+        }
+
+        else if (assetNumberCharacteristicUUID.getUuid().equals(characteristicUUID)) {
+            Integer assetNumber = 0;
+            ByteBuffer byteBuffer = ByteBuffer.wrap(value);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            assetNumber = byteBuffer.getInt();
+            Log.v(TAG, "assetNumber: " + assetNumber);
+            MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                MTSEventType.didReceiveAssetNumber,
+                assetNumber,
+                mtsBeacon
+            );
+            EventBus.getDefault().post(messageEvent);
+        }
+
+        else if (denominationCharacteristicUUID.getUuid().equals(characteristicUUID)) {
+            Integer denomination = 0;
+            ByteBuffer byteBuffer = ByteBuffer.wrap(value);
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            denomination = byteBuffer.getInt();
+            MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                    MTSEventType.didReceiveDenomination,
+                denomination,
+                mtsBeacon
+            );
+            EventBus.getDefault().post(messageEvent);
+        }
+
+        else if (gmiLinkActiveCharacteristicUUID.getUuid().equals(characteristicUUID)) {
+            boolean isGmiLinkActive = false;
+            isGmiLinkActive = (value[0] == (byte)0x01);
+            mtsBeacon.isGmiLinkActive = isGmiLinkActive;
+            Log.v(TAG, "isGmiLinkActive: " + isGmiLinkActive);
+            MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                MTSEventType.didReceiveGmiLinkActive,
+                isGmiLinkActive,
+                mtsBeacon
+            );
+            EventBus.getDefault().post(messageEvent);
+        }
+
     }
 
 
     // Bluetooth
 
     public void startScanning() {
-        changeBluetoothConnectionState(BluetoothConnectionState.scanning);
+        changeBluetoothDiscoveryState(BluetoothDiscoveryState.scanning);
     }
 
     public void stopScanning() {
-        changeBluetoothConnectionState(BluetoothConnectionState.inactive);
+        changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
     }
 
-    public void disconnect() {
+    public void disconnect(MTSBeacon mtsBeacon) {
         byte[] bytes = new byte[1];
-        writeCharacteristic(userDisconnectedCharacteristicUUID, bytes, WRITE_TYPE_DEFAULT);
+        writeCharacteristic(userDisconnectedCharacteristicUUID, bytes, WRITE_TYPE_DEFAULT, mtsBeacon);
     }
 
-    public void readCharacteristic(ParcelUuid characteristicUUID) {
+    public void readCharacteristic(ParcelUuid characteristicUUID, MTSBeacon mtsBeacon) {
 
-        if (null == connectedMTSBeacon) {
-            Log.v("","readCharacteristic failed at if (null == connectedMTSBeacon).");
+        if (null == mtsBeacon) {
+            Log.v("","readCharacteristic failed at if (null == mtsBeacon).");
             return;
         }
 
-        if (null == connectedMTSBeacon.peripheral) {
-            Log.v("","readCharacteristic failed at if (null == connectedMTSBeacon.peripheral).");
+        if (null == mtsBeacon.peripheral) {
+            Log.v("","readCharacteristic failed at if (null == mtsBeacon.peripheral).");
             return;
         }
 
-        BluetoothGattCharacteristic characteristic = connectedMTSBeacon.peripheral.getCharacteristic(mtsServiceUUID, characteristicUUID.getUuid());
+        BluetoothGattCharacteristic characteristic;
+        characteristic = mtsBeacon.peripheral.getCharacteristic(mtsServiceUUID, characteristicUUID.getUuid());
         if (null == characteristic) {
-            Log.v("", "readCharacteristic failed at null == characteristic.");
+            characteristic = mtsBeacon.peripheral.getCharacteristic(machineInfoServiceUUID, characteristicUUID.getUuid());
+        }
+        if (null == characteristic) {
+            Log.v("", "readCharacteristic failed at null == characteristic for uuid: " + characteristicUUID.getUuid());
             return;
         }
 
-        connectedMTSBeacon.peripheral.readCharacteristic(characteristic);
+        mtsBeacon.peripheral.readCharacteristic(characteristic);
     }
 
+    public void writeCharacteristic(ParcelUuid characteristicUUID, final byte[] value, int writeType, MTSBeacon mtsBeacon) {
 
-    public void writeCharacteristic(ParcelUuid characteristicUUID, final byte[] value, int writeType) {
-
-        if (null == connectedMTSBeacon) {
-            Log.v("","writeCharacteristic failed at if (null == connectedMTSBeacon).");
+        if (null == mtsBeacon) {
+            Log.v("","writeCharacteristic failed at if (null == mtsBeacon).");
             return;
         }
 
-        if (null == connectedMTSBeacon.peripheral) {
-            Log.v("","writeCharacteristic failed at if (null == connectedMTSBeacon.peripheral).");
+        BluetoothGattCharacteristic characteristic;
+        characteristic = mtsBeacon.peripheral.getCharacteristic(mtsServiceUUID, characteristicUUID.getUuid());
+        if (null == characteristic) {
+            characteristic = mtsBeacon.peripheral.getCharacteristic(machineInfoServiceUUID, characteristicUUID.getUuid());
+        }
+        if (null == characteristic) {
+            Log.v("", "writeCharacteristic failed at null == characteristic for uuid: " + characteristicUUID.getUuid());
             return;
         }
 
-        BluetoothGattCharacteristic characteristic = connectedMTSBeacon.peripheral.getCharacteristic(mtsServiceUUID, characteristicUUID.getUuid());
-        connectedMTSBeacon.peripheral.writeCharacteristic(characteristic, value, writeType);
-        Log.v("","writeCharacteristic complete for " + characteristicUUID.toString());
+        mtsBeacon.peripheral.writeCharacteristic(characteristic, value, writeType);
+        Log.v("","writeCharacteristic complete for " + characteristicUUID.toString() + " with data: " );
     }
 
-    public void requestTerminalKind() {
-        if (null == connectedMTSBeacon) {
-            return;
-        }
-        readCharacteristic(terminalKindCharacteristicUUID);
+    public void requestTerminalKind(MTSBeacon mtsBeacon) {
+        readCharacteristic(terminalKindCharacteristicUUID, mtsBeacon);
     }
 
-    public void requestStickyConnectState() {
-        if (null == connectedMTSBeacon) {
-            return;
-        }
-        readCharacteristic(stickyConnectCharacteristicUUID);
+    public void requestCardData(MTSBeacon mtsBeacon) {
+        readCharacteristic(cardDataCharacteristicUUID, mtsBeacon);
     }
 
-    public void requestCardData() {
-        if (null == connectedMTSBeacon) {
-            return;
-        }
-        readCharacteristic(cardDataCharacteristicUUID);
-    }
-
-    public Boolean writeCardDataToBluetooth(String cardDataString) {
-        if (null == connectedMTSBeacon) {
-            return false;
-        }
+    public Boolean writeCardDataToBluetooth(String cardDataString, MTSBeacon mtsBeacon) {
 
         byte[] data = validatedCardData(cardDataString);
 
+        System.out.println("writeCardDataToBluetooth data: " + bytesToHex(data));
+
         if (null == data) {
+            System.out.println("writeCardDataToBluetooth failed at null == data.");
             return false;
         }
 
-        writeCharacteristic(cardDataCharacteristicUUID, data, WRITE_TYPE_DEFAULT);
+        writeCharacteristic(cardDataCharacteristicUUID, data, WRITE_TYPE_DEFAULT, mtsBeacon);
 
         return true;
     }
 
+    final private static char[] hexArray = "0123456789ABCDEF".toCharArray();
+    public static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for ( int j = 0; j < bytes.length; j++ ) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
     private byte[] validatedCardData(String cardDataString) {
+        System.out.println("validatedCardData cardDataString: " + cardDataString);
         String truncatedCardDataString = cardDataString.substring(0, Math.min(cardDataString.length(), cardDataCharacterCountMax));
+        System.out.println("validatedCardData truncatedCardDataString: " + truncatedCardDataString);
         byte[] cardDataBytes = truncatedCardDataString.getBytes(Charset.forName("UTF-8"));
+        System.out.println("validatedCardData cardDataBytes: " + bytesToHex(cardDataBytes));
         byte[] nullBytes = new byte[0];
         byte[] terminatedBytes = new byte[cardDataBytes.length + nullBytes.length];
         System.arraycopy(cardDataBytes, 0, terminatedBytes, 0, cardDataBytes.length);
         System.arraycopy(nullBytes, 0, terminatedBytes, cardDataBytes.length, nullBytes.length);
+        System.out.println("validatedCardData terminatedBytes: " + bytesToHex(terminatedBytes));
         return terminatedBytes;
     }
 
@@ -583,11 +692,12 @@ public class MTSService extends Service {
         {
             public void run()
             {
-                if (BluetoothConnectionState.scanning == bluetoothConnectionState) {
+                System.out.println("");
+                if (BluetoothDiscoveryState.scanning == bluetoothDiscoveryState) {
                     stopScanning();
                 }
             }
-        }, scanTimeoutInterval());
+        }, scanTimeoutInterval() * 1000);
     }
 
     private void stopScanTimeoutTimer() {
@@ -619,7 +729,7 @@ public class MTSService extends Service {
     }
 
     private void restartScanIfNeeded() {
-        if (scanning != bluetoothConnectionState) {
+        if (BluetoothDiscoveryState.scanning != bluetoothDiscoveryState) {
             return;
         }
         if (central.isScanning()) {
@@ -646,7 +756,7 @@ public class MTSService extends Service {
             public void run()
             {
                 scanRestartRunnable=this;
-                if (scanning != bluetoothConnectionState) {
+                if (BluetoothDiscoveryState.scanning != bluetoothDiscoveryState) {
                     Log.v("","startRestartTimer() fired, but returning due to scanning != bluetoothConnectionState.");
                     return;
                 }
@@ -669,11 +779,6 @@ public class MTSService extends Service {
     }
 
     private void clearAnyExpiredBeacons() {
-
-        if (null != connectedMTSBeacon) {
-            return;
-        }
-
         long current = SystemClock.elapsedRealtime();
         ListIterator listIterator = detectedBeacons.listIterator();
         while(listIterator.hasNext()) {
@@ -695,141 +800,103 @@ public class MTSService extends Service {
         return -1;
     }
 
-    private void connect(MTSBeacon beacon) {
-        stopScan();
-        clearDiscoveredBeacons();
-        connectedMTSBeacon = beacon;
-        central.connectPeripheral(connectedMTSBeacon.peripheral, peripheralCallback);
-    }
-
-    private void reconnect() {
-        if (null == connectedMTSBeacon) {
-            return;
-        }
-
-        if (null == connectedMTSBeacon.peripheral) {
-            return;
-        }
-
-        if (connectedMTSBeacon.peripheral.getState() == STATE_CONNECTED ||
-            connectedMTSBeacon.peripheral.getState() == STATE_CONNECTING
-        ) {
-            return;
-        }
-
-        if (!bluetoothConnectionState.equals(attemptingToReconnect)) {
-            return;
-        }
-
-        connect(connectedMTSBeacon);
-
-        startReconnectTimeout();
-    }
-
-    private void disconnectIfNeeded() {
-        Log.v(TAG, "disconnectIfNeeded");
-        if (null != connectedMTSBeacon) {
-            connectedMTSBeacon.peripheral.cancelConnection();
-            // Beacons frequently fail to disconnect properly; wait until scanning state change to
-            // clear: connectedMTSBeacon = null;
-
-        // Handle the case where a prior attempt to disconnect was attempted while connectedMTSBeacon
-        // was assigned, but it is now null, yet the connection failed to close.
-        } else if (null != lastConnectedBluetoothPeripheral && lastConnectedBluetoothPeripheral.getState() == STATE_CONNECTED) {
-            lastConnectedBluetoothPeripheral.cancelConnection();
-
+    private void connect(MTSBeacon mtsBeacon) {
+        if (connectedMTSBeacons.contains(mtsBeacon)) {
+            Log.v("","called for existing member mtsBeacon, returning early.");
         } else {
-            Log.v(TAG, "disconnectIfNeeded called while null == connectedMTSBeacon annd lastConnectedBluetoothPeripheral.getState() != STATE_CONNECTED");
+            connectedMTSBeacons.add(mtsBeacon);
+        }
+        stopScan();
+        stopScanRestartTimer();
+        stopExpirationTimer();
+        clearDiscoveredBeacons();
+        central.connectPeripheral(mtsBeacon.peripheral, peripheralCallback);
+    }
+
+    private void disconnectIfNeeded(MTSBeacon mtsBeacon) {
+        Log.v(TAG, "disconnectIfNeeded");
+        if (null != mtsBeacon) {
+            mtsBeacon.peripheral.cancelConnection();
+            // Beacons frequently fail to disconnect properly; wait until disconnect callback to
+            // remove from connectedMTSBeacons.
+        } else {
+            Log.v(TAG, "disconnectIfNeeded called while null == connectedMTSBeacon");
         }
     }
 
-    private void autoConnectThresholdCrossed(MTSBeacon beacon) {
+    private void autoConnectThresholdCrossed(MTSBeacon mtsBeacon) {
         if (!autoConnectThresholdEnabled()) {
             return;
         }
-        if (null != connectedMTSBeacon) {
-            Log.v(TAG, "null != bluetoothService.connectedMTSBeacon");
-            return;
-        }
-        connect(beacon);
+        connect(mtsBeacon);
     }
 
     private void evaluateVsAutoConnectThreshold() {
+
         MTSBeacon beacon = highestRSSIBeacon();
         if (null == beacon) {
+            System.out.println("evaluateVsAutoConnectThreshold null == beacon");
             return;
         }
+
         if (beacon.filteredRSSI > autoConnectRSSIThreshold()) {
             autoConnectThresholdCrossed(beacon);
             return;
         } else {
+            System.out.println("beacon.filteredRSSI: " + beacon.filteredRSSI + "autoConnectRSSIThreshold(): " + autoConnectRSSIThreshold());
             //Timber.i("evaluateVsAutoConnectThreshold beacon.filteredRSSI %s !> autoConnectRSSIThreshold() %s.", beacon.filteredRSSI, autoConnectRSSIThreshold());
         }
     }
 
-    private void evaluateVsAutoDisconnectThreshold(int rssi) {
+    private void evaluateVsAutoDisconnectThreshold(int rssi, MTSBeacon mtsBeacon) {
         if (!autoDisconnectThresholdEnabled()) {
             return;
         }
-        if (null == connectedMTSBeacon) {
-            return;
-        }
         if (autoDisconnectRSSIThreshold() > rssi) {
-            if (isAutoDisconnectTimerActive) {
+            if (mtsBeacon.isAutoDisconnectTimerActive) {
                 // AutoDisconnectTimer is already running, don't restart it.
                 Log.v("","evaluateVsAutoDisconnectThreshold: " + rssi +" returning early since AutoDisconnectTimer is already running, don't restart it.");
                 return;
             }
-            startAutoDisconnectCountdown();
+            startAutoDisconnectCountdown(mtsBeacon);
         } else {
-            stopAutoDisconnectCountdown();
+            stopAutoDisconnectCountdown(mtsBeacon);
         }
     }
 
-    void autoDisconnectThresholdCrossed() {
-        if (null == connectedMTSBeacon) {
-            return;
-        }
-        disconnectIfNeeded();
+    void autoDisconnectThresholdCrossed(MTSBeacon mtsBeacon) {
+        disconnectIfNeeded(mtsBeacon);
     }
 
-
-    // AutoDisconnectCountdown - RSSI threshold + interval triggers disconnect.
-    Handler autoDisconnectTimeoutHandler = new Handler();
-    Boolean isAutoDisconnectTimerActive = false;
-
-    private void startAutoDisconnectCountdown() {
-        isAutoDisconnectTimerActive = true;
-        autoDisconnectTimeoutHandler.postDelayed(new Runnable()
+    private void startAutoDisconnectCountdown(final MTSBeacon mtsBeacon) {
+        mtsBeacon.isAutoDisconnectTimerActive = true;
+        mtsBeacon.autoDisconnectTimeoutHandler.postDelayed(new Runnable()
         {
             public void run()
             {
-                if (null == connectedMTSBeacon) {
-                    stopAutoDisconnectCountdown();
-                } else {
-                    autoDisconnectThresholdCrossed();
-                }
+                autoDisconnectThresholdCrossed(mtsBeacon);
             }
         }, autoDisconnectInterval() * 1000);
     }
 
-    private void stopAutoDisconnectCountdown() {
-        autoDisconnectTimeoutHandler.removeCallbacksAndMessages(null);
-        isAutoDisconnectTimerActive = false;
+    private void stopAutoDisconnectCountdown(MTSBeacon mtsBeacon) {
+        mtsBeacon.autoDisconnectTimeoutHandler.removeCallbacksAndMessages(null);
+        mtsBeacon.isAutoDisconnectTimerActive = false;
     }
-
 
     // Connected RSSI read.  Supports auto-disconnect and interface RSSI display.
     private Handler connectedRSSIReadHandler = new android.os.Handler();
 
+    // Even with the queued commands, a tight loop of connectedMTSBeacons fails to return RSSI reads
+    // for all but the first beacon.  Cycle through each beacon in turn.
+    int rssiReadTurn = 0;
     private Runnable connectedRSSIReadRunnable = new Runnable() {
         public void run() {
-
-            if (null == connectedMTSBeacon) {
-                stopConnectedRSSIReads();
-                return;
-            }
-            connectedMTSBeacon.peripheral.readRemoteRssi();
+            int size = connectedMTSBeacons.size();
+            if (rssiReadTurn >= size) { rssiReadTurn = 0; }
+            MTSBeacon mtsBeacon = connectedMTSBeacons.get(rssiReadTurn);
+            mtsBeacon.peripheral.readRemoteRssi();
+            rssiReadTurn++;
             connectedRSSIReadHandler.postDelayed(connectedRSSIReadRunnable, 1 * 1000);
         }
     };
@@ -846,14 +913,6 @@ public class MTSService extends Service {
         if (null == central) {
             return;
         }
-
-        if (null != lastConnectedBluetoothPeripheral) {
-            int state = lastConnectedBluetoothPeripheral.getState();
-            if (state == STATE_CONNECTED) {
-                lastConnectedBluetoothPeripheral.cancelConnection();
-            }
-        }
-
         central.startPairingPopupHack();
         central.scanForPeripheralsWithServices(new UUID[]{mtsServiceUUID});
     }
@@ -865,65 +924,66 @@ public class MTSService extends Service {
         central.stopScan();
     }
 
-    public void changeBluetoothConnectionState(BluetoothConnectionState newState) {
-        if (newState == bluetoothConnectionState) {
+    public void changeBluetoothDiscoveryState(BluetoothDiscoveryState newState) {
+        if (newState == bluetoothDiscoveryState) {
             return;
         }
-        Log.v(TAG, "changeBluetoothConnectionState from: " + bluetoothConnectionState.toString() + " to: " + newState);
+        BluetoothDiscoveryState oldState = bluetoothDiscoveryState;
+        bluetoothDiscoveryState = newState;
+        Log.v(TAG, "changeBluetoothDiscoveryState from: " + oldState.toString() + " to: " + newState.toString());
+
         stopScanTimeoutTimer();
-        stopReconnectTimeout();
-        stopAutoDisconnectCountdown();
         stopConnectedRSSIReads();
-        bluetoothConnectionState = newState;
-        switch (bluetoothConnectionState) {
+
+        switch (bluetoothDiscoveryState) {
             case notReady:
-                disconnectIfNeeded();
                 stopScan();
+                stopScanRestartTimer();
                 stopExpirationTimer();
+                stopScanTimeoutTimer();
                 break;
             case inactive:
-                disconnectIfNeeded();
                 stopScan();
+                stopScanRestartTimer();
                 stopExpirationTimer();
+                stopScanTimeoutTimer();
                 break;
             case scanning:
-                disconnectIfNeeded();
                 startScan();
                 startRestartTimer();
                 startScanTimeoutTimer();
                 startExpirationTimer();
                 break;
-            case connected:
-                stopScan();
-                stopExpirationTimer();
+        }
+        Log.v("","changeBluetoothDiscoveryState, sending event...");
+        MTSBluetoothDiscoveryStateEvent messageEvent = new MTSBluetoothDiscoveryStateEvent(
+            oldState,
+            newState
+        );
+        EventBus.getDefault().post(messageEvent);
+    }
+
+    // N.B. scanning is required to stop upon connect.  This is a change from prior behavior where disconnect would
+    // transition to scanning without user intervention.
+    private void bluetoothConnectionEventOccurred(BluetoothConnectionEvent bluetoothConnectionEvent, MTSBeacon mtsBeacon) {
+        //TODO: mtsBeacon.autoDisconnectTimeoutHandler.removeCallbacks();
+        if (0 == connectedMTSBeacons.size()) {
+            stopConnectedRSSIReads();
+        }
+        changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
+        switch (bluetoothConnectionEvent) {
+            case connect:
                 startConnectedRSSIReads();
                 break;
-            case attemptingToReconnect:
-              startReconnectTimeout();
+            case disconnect:
+                break;
         }
-
-        final Intent connectionStateChangedIntent = new Intent(BluetoothConnectionStateChanged);
-        sendBroadcast(connectionStateChangedIntent);
-    }
-
-    Handler reconnectTimeoutHandler = new Handler();
-    Boolean isisReconnectTimerActive = false;
-
-    private void startReconnectTimeout() {
-        isisReconnectTimerActive = true;
-        reconnectTimeoutHandler.postDelayed(new Runnable()
-        {
-            public void run()
-            {
-                connectedMTSBeacon = null;
-                changeBluetoothConnectionState(scanning);
-            }
-        }, autoDisconnectInterval() * 10000);
-    }
-
-    private void stopReconnectTimeout() {
-        reconnectTimeoutHandler.removeCallbacksAndMessages(null);
-        isisReconnectTimerActive = false;
+        MTSBluetoothConnectionEvent messageEvent = new MTSBluetoothConnectionEvent(
+                bluetoothConnectionEvent,
+                mtsBeacon
+        );
+        Log.v("","bluetoothConnectionEventOccurred, sending event...");
+        EventBus.getDefault().post(messageEvent);
     }
 
 }

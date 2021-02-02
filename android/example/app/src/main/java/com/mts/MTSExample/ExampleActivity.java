@@ -11,6 +11,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -27,16 +28,24 @@ import android.widget.TextView;
 
 import com.karlotoy.perfectune.instance.PerfectTune;
 import com.mts.mts.MTSBeacon;
+import com.mts.mts.MTSBeaconEvent;
+import com.mts.mts.MTSBluetoothConnectionEvent;
+import com.mts.mts.MTSBluetoothDiscoveryStateEvent;
 import com.mts.mts.MTSService;
 
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import static android.text.TextUtils.isEmpty;
-import static com.mts.mts.MTSService.BluetoothConnectionState.connected;
-import static com.mts.mts.MTSService.BluetoothConnectionState.inactive;
-import static com.mts.mts.MTSService.BluetoothConnectionState.notReady;
-import static com.mts.mts.MTSService.BluetoothConnectionState.scanning;
+import static com.mts.mts.MTSService.BluetoothConnectionEvent.connect;
+import static com.mts.mts.MTSService.BluetoothDiscoveryState.inactive;
+import static com.mts.mts.MTSService.BluetoothDiscoveryState.notReady;
+import static com.mts.mts.MTSService.BluetoothDiscoveryState.scanning;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 public class ExampleActivity extends AppCompatActivity implements ActivityCompat.OnRequestPermissionsResultCallback {
 
@@ -46,11 +55,12 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     private MTSService mtsService;
     private PerfectTune perfectTune = new PerfectTune();
     private Handler autoDisconnectHandler = new Handler();
-    private MTSService.BluetoothConnectionState lastConnectionStatus = notReady;
 
     private TextView versionHeaderTextView;
-    private Button connectionStateButton;
-    private TextView connectionStatusTextView;
+    private Button connectionStateButton1;
+    private TextView connectionStatusTextView1;
+    private Button connectionStateButton2;
+    private TextView connectionStatusTextView2;
     private EditText autoConnectThresholdEditText;
     private EditText autoDisconnectThresholdEditText;
     private EditText scanDurationTimeoutEditText;
@@ -58,8 +68,17 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     private Button cardDataButton;
     private TextView lastWriteAtTextView;
     private TextView terminalKindTextView;
-    private TextView stickyConnectionTextView;
-    private TextView connectedRSSITextView;
+    private TextView connectedRSSITextView1;
+    private TextView connectedRSSITextView2;
+    private TextView sasSerialNumberTextView;
+    private TextView locationTextView;
+    private TextView assetNumberTextView;
+    private TextView denominationTextView;
+    private TextView gmiLinkActiveTextView;
+    private String cardDataString = "";
+
+    private MTSBeacon mtsBeacon1;
+    private MTSBeacon mtsBeacon2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,8 +94,8 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
     @Override
     public void onResume() {
+        System.out.println("ExampleActivity onResume");
         super.onResume();
-        cardDataEditText.setText(lastCardData());
         Intent serviceIntent = new Intent(this, MTSService.class);
         bindService(serviceIntent , serviceConnection, BIND_AUTO_CREATE);
         registerReceiver(mtsServiceUpdateReceiver, mtsServiceUpdateIntentFilter());
@@ -85,10 +104,27 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             updateInterface();
         }
         requestPermissionsIfNeeded();
+        pruneAssignedBeaconsIfNeeded();
+        updateInterface();
+    }
+
+    @Override
+    public void onStart() {
+        System.out.println("ExampleActivity onStart");
+        super.onStart();
+        EventBus.getDefault().register(this);
+    }
+
+    @Override
+    public void onStop() {
+        System.out.println("ExampleActivity onStop");
+        EventBus.getDefault().unregister(this);
+        super.onStop();
     }
 
     @Override
     public void onPause() {
+        System.out.println("ExampleActivity onPause");
         super.onPause();
         perfectTune.stopTune();
     }
@@ -102,32 +138,56 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         mtsService = null;
     }
 
+    // This example activity updates the interface based on mtsBeacon1/2 assignments.
+    // If there are stale assignments on resume, clear them so the interface reflects this.
+    private void pruneAssignedBeaconsIfNeeded() {
+        if (null == mtsService) {
+            System.out.println("pruneAssignedBeaconsIfNeeded called while null == mtsService");
+            return;
+        }
+        if (0 == mtsService.connectedMTSBeacons.size()) {
+            System.out.println("pruneAssignedBeaconsIfNeeded 0 == mtsService.connectedMTSBeacons.size(), clearing beacons...");
+            mtsBeacon1 = null;
+            mtsBeacon2 = null;
+        } else {
+            System.out.println("pruneAssignedBeaconsIfNeeded connectedMTSBeacons still has some members, not clearing.");
+        }
+    }
+
     private void updateInterface() {
         if (null == mtsService) {
             Log.v(TAG, "null == MTSService in updateInterface()");
             return;
         }
 
-        switch (mtsService.bluetoothConnectionState) {
-            case notReady:
-                connectionStatusTextView.setText("Not Ready");
-                connectionStateButton.setText("Open Bluetooth Settings");
-                break;
-            case inactive:
-                connectionStatusTextView.setText("Inactive");
-                connectionStateButton.setText("Start Scanning");
-                break;
-            case scanning:
-                connectionStatusTextView.setText("Scanning");
-                connectionStateButton.setText("Stop Scanning");
-                break;
-            case connected:
-                connectionStatusTextView.setText("Connected");
-                connectionStateButton.setText("Disconnect");
-                break;
-            case attemptingToReconnect:
-                connectionStatusTextView.setText("Attempting Reconnect");
-                connectionStateButton.setText("Disconnect");
+        if (null == mtsBeacon1) {
+            updateStatusTextViewForState(connectionStatusTextView1, connectionStateButton1);
+        } else {
+            connectionStatusTextView1.setText("Connected");
+            connectionStateButton1.setText("Disconnect");
+        }
+
+        if (null == mtsBeacon2) {
+            updateStatusTextViewForState(connectionStatusTextView2, connectionStateButton2);
+        } else {
+            connectionStatusTextView2.setText("Connected");
+            connectionStateButton2.setText("Disconnect");
+        }
+
+        if (null == mtsBeacon1 && null == mtsBeacon2) {
+            connectionStatusTextView2.setVisibility(View.GONE);
+            connectionStateButton2.setVisibility(View.GONE);
+        } else {
+            connectionStatusTextView2.setVisibility(View.VISIBLE);
+            connectionStateButton2.setVisibility(View.VISIBLE);
+        }
+
+    }
+
+    private void populateFormValues() {
+        if (null == mtsService) {
+            Log.v(TAG, "null == MTSService in updateInterface()");
+            return;
         }
 
         String autoConnectRSSIString = String.format("%d", mtsService.autoConnectRSSIThreshold());
@@ -142,6 +202,32 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         String versionString = "MTS Example " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")";
         versionHeaderTextView.setText(versionString);
     }
+
+    private void updateStatusTextViewForState(TextView textView, Button button) {
+        switch (mtsService.bluetoothDiscoveryState) {
+            case notReady:
+                textView.setText("Not Ready");
+                button.setText("Open Bluetooth Settings");
+                break;
+            case inactive:
+                textView.setText("Inactive");
+                button.setText("Start Scanning");
+                break;
+            case scanning:
+                textView.setText("Scanning");
+                button.setText("Stop Scanning");
+                break;
+        }
+        autoDisconnectHandler.postDelayed( new Runnable() {
+            @Override
+            public void run() {
+                perfectTune.stopTune();
+            }
+        }, 500);
+    }
+
+
+    // MARK: Connect/Disconnect Sounds
 
     private void playConnectedSound() {
         perfectTune.setTuneFreq(kAutoConnectThresholdToneFrequency);
@@ -167,7 +253,6 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             }
         }, 500);    }
 
-
     private void activateDeviceScreenIfDebugging() {
         if (BuildConfig.DEBUG) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
@@ -181,14 +266,23 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
         versionHeaderTextView = (TextView) findViewById(R.id.version_header);
 
-        connectionStateButton = (Button) findViewById(R.id.connection_status_button);
-        connectionStateButton.setOnClickListener(new View.OnClickListener() {
+        connectionStateButton1 = (Button) findViewById(R.id.connection_status_button1);
+        connectionStateButton1.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                bluetoothConnectionAction();
+                connectionStatusCellTap(mtsBeacon1);
             }
         });
-        connectionStatusTextView = (TextView) findViewById(R.id.connection_status_text_view);
+        connectionStatusTextView1 = (TextView) findViewById(R.id.connection_status_text_view1);
+
+        connectionStateButton2 = (Button) findViewById(R.id.connection_status_button2);
+        connectionStateButton2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                connectionStatusCellTap(mtsBeacon2);
+            }
+        });
+        connectionStatusTextView2 = (TextView) findViewById(R.id.connection_status_text_view2);
 
         autoConnectThresholdEditText = (EditText) findViewById(R.id.autoconnect_threshold_edit_text);
         autoConnectThresholdEditText.addTextChangedListener(autoConnectThresholdEditTextWatcher);
@@ -201,18 +295,38 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
         cardDataEditText = (EditText) findViewById(R.id.player_id_edit_text);
         cardDataEditText.addTextChangedListener(cardDataEditTextWatcher);
+        cardDataEditText.setOnFocusChangeListener(new View.OnFocusChangeListener()
+        {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus)
+            {
+                if (hasFocus==true)
+                {
+                    cardDataEditText.setText("");
+                }
+            }
+        });
 
         cardDataButton = (Button) findViewById(R.id.cardDataButton);
         cardDataButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                System.out.println("cardDataButton.setOnClickListener");
                 writeCardDataToBluetooth();
             }
         });
         lastWriteAtTextView = (TextView) findViewById(R.id.lastWriteAtTextView);
         terminalKindTextView = (TextView) findViewById(R.id.terminal_id_text_view);
-        stickyConnectionTextView = (TextView) findViewById(R.id.sticky_connection_text_view);
-        connectedRSSITextView = (TextView) findViewById(R.id.connected_rssi_text_view);
+        connectedRSSITextView1 = (TextView) findViewById(R.id.connected_rssi_text_view1);
+        connectedRSSITextView2 = (TextView) findViewById(R.id.connected_rssi_text_view2);
+
+        sasSerialNumberTextView = (TextView) findViewById(R.id.sas_serial_number_text_view);
+        locationTextView = (TextView) findViewById(R.id.location_text_view);
+        assetNumberTextView = (TextView) findViewById(R.id.asset_number_text_view);
+        denominationTextView = (TextView) findViewById(R.id.denomination_text_view);
+        gmiLinkActiveTextView = (TextView) findViewById(R.id.gmi_link_active_text_view);
+
+        populateFormValues();
     }
 
     private TextWatcher autoConnectThresholdEditTextWatcher = new TextWatcher(){
@@ -252,6 +366,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
         @Override
         public void afterTextChanged(Editable s) {
+            System.out.println("afterTextChanged s.toString(): " + s.toString());
             int interval = tryParsingAsInt(s.toString());
             mtsService.setScanTimeoutInterval(interval);
         }
@@ -267,6 +382,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         @Override
         public void afterTextChanged(Editable s) {
             setLastCardData(s.toString());
+            System.out.println("afterTextChanged cardDataString: " + lastCardData());
         }
     };
 
@@ -278,26 +394,31 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         }
     }
 
-    public void bluetoothConnectionAction() {
+    public void connectionStatusCellTap(MTSBeacon mtsBeacon) {
 
         if (null == mtsService) {
-            Log.v(TAG, "mtsService was null on bluetoothConnectionAction request.");
+            Log.v(TAG, "connectionStatusCellTap: mtsService was null on connectionStatusCell1Tap.");
             return;
         }
-
-        switch (mtsService.bluetoothConnectionState) {
-            case notReady:
-                openBluetoothSettings();
-                break;
-            case inactive:
-                mtsService.startScanning();
-                break;
-            case scanning:
-                mtsService.stopScanning();
-                break;
-            case connected:
-                mtsService.disconnect();
-                break;
+        else if (null != mtsBeacon) {
+            Log.v(TAG, "connectionStatusCellTap: null != mtsBeacon, requesting disconnect...");
+            mtsService.disconnect(mtsBeacon);
+        }
+        else {
+            switch (mtsService.bluetoothDiscoveryState) {
+                case notReady:
+                    Log.v(TAG, "connectionStatusCellTap: notReady");
+                    openBluetoothSettings();
+                    break;
+                case inactive:
+                    Log.v(TAG, "connectionStatusCellTap: inactive");
+                    mtsService.startScanning();
+                    break;
+                case scanning:
+                    Log.v(TAG, "connectionStatusCellTap: scanning");
+                    mtsService.stopScanning();
+                    break;
+            }
         }
     }
 
@@ -337,6 +458,17 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
     // Service Interaction
 
+    private final BroadcastReceiver mtsServiceUpdateReceiver = new BroadcastReceiver()
+    {
+        @Override
+        public void onReceive(Context context, Intent intent) {}
+    };
+
+    private static IntentFilter mtsServiceUpdateIntentFilter() {
+        final IntentFilter intentFilter = new IntentFilter();
+        return intentFilter;
+    }
+
     private final ServiceConnection serviceConnection = new ServiceConnection() {
 
         @Override
@@ -349,7 +481,6 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
                 Log.v("","initialized mtsService...");
             }
 
-//            bluetoothEnabler();
             mtsService.setAutoDisconnectInterval(3);
             updateInterface();
         }
@@ -361,93 +492,146 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     };
 
     private void requestTerminalKind() {
-        mtsService.requestTerminalKind();
-    }
-
-    private void requestStickyConnectState() {
-        mtsService.requestStickyConnectState();
+        if (null != mtsBeacon1) {
+            mtsService.requestTerminalKind(mtsBeacon1);
+        }
     }
 
     private void writeCardDataToBluetooth() {
-        mtsService.writeCardDataToBluetooth(lastCardData());
+        if (null != mtsBeacon1) {
+            System.out.println("Example writeCardDataToBluetooth cardDataString: " + lastCardData());
+            mtsService.writeCardDataToBluetooth(lastCardData(), mtsBeacon1);
+        } else {
+            System.out.println("Example writeCardDataToBluetooth called while null == mtsBeacon1.");
+        }
     }
 
-    private final BroadcastReceiver mtsServiceUpdateReceiver = new BroadcastReceiver()
-    {
-        @Override
-        public void onReceive(Context context, Intent intent)
-        {
-            if (null == mtsService) {
-                return;
-            }
 
-            final String action = intent.getAction();
-            if (MTSService.BluetoothConnectionStateChanged.equals(action)){
-                if (mtsService.bluetoothConnectionState == connected) {
-                    playConnectedSound();
-                    requestTerminalKind();
-                    requestStickyConnectState();
-                    writeCardDataToBluetooth();
-                    lastWriteAtTextView.setText("Last write: none since connect.");
-                }
-                else if ( (mtsService.bluetoothConnectionState == scanning || mtsService.bluetoothConnectionState == inactive)
-                        && lastConnectionStatus == connected) {
-                    playDisconnectSound();
-                }
-                if (mtsService.bluetoothConnectionState == connected) {
-                    lastWriteAtTextView.setText("Ready to write card data.");
-                } else {
-                    lastWriteAtTextView.setText("Connect BLE or MFi to write card data.");
-                }
-                lastConnectionStatus = mtsService.bluetoothConnectionState;
+    // EventBus call from MTSService
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onMessage(MTSBluetoothDiscoveryStateEvent event) {
+        Log.v("","changeBluetoothDiscoveryState event received in Example.");
+        updateInterface();
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onMessage(MTSBluetoothConnectionEvent event) {
+
+        Log.v("","bluetoothConnectionEvent received in Example " + event.connectionEvent);
+
+        updateDisplayBeacons(event);
+
+        if (event.connectionEvent.equals(connect)) {
+            playConnectedSound();
+            requestTerminalKind();
+            mtsService.writeCardDataToBluetooth(lastCardData(), event.mtsBeacon);
+            lastWriteAtTextView.setText("Last write: none since connect.");
+        }
+        else if (event.connectionEvent.equals(MTSService.BluetoothConnectionEvent.disconnect)) {
+            playDisconnectSound();
+            lastWriteAtTextView.setText("Connect BLE to write card data.");
+        }
+        updateInterface();
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onMessage(MTSBeaconEvent event) {
+
+        if (event.eventType.equals(MTSService.MTSEventType.didReceiveTerminalKind)) {
+            String terminalKind = (String) event.value;
+            terminalKindTextView.setText(terminalKind);
+        }
+        else if (event.eventType.equals(MTSService.MTSEventType.updateOnConnectedRSSIReceipt)) {
+            String connectedRSSIValue = (String) event.value;
+            if (event.mtsBeacon.equals(mtsBeacon1)) {
+                connectedRSSITextView1.setText(connectedRSSIValue);
             }
-            else if (MTSService.DidReceiveTerminalKind.equals(action)){
-                String terminalKind = intent.getExtras().getString("terminalKind");
-                terminalKindTextView.setText(terminalKind);
+            else if (event.mtsBeacon.equals(mtsBeacon2)) {
+                connectedRSSITextView2.setText(connectedRSSIValue);
+            } else {
+                Log.v(TAG, "onMessage RSSI event arrived for an unassigned mtsBeacon.");
             }
-            else if (MTSService.DidReceiveStickyConnectionState.equals(action)){
-                boolean deviceWantsStickyConnection = intent.getExtras().getBoolean("stickyConnectionState");
-                String boolString = deviceWantsStickyConnection ? "Yes" : "No";
-                stickyConnectionTextView.setText(boolString);
-            }
-            else if (MTSService.UpdateOnConnectedRSSIReceipt.equals(action)){
-                String connectedRSSIValue = intent.getExtras().getString("connectedRSSIValue");
-                connectedRSSITextView.setText(connectedRSSIValue);
-            }
-            else if (MTSService.DidReceiveCardData.equals(action)){
-                String cardData = intent.getExtras().getString("cardData");
+        }
+        else if (event.eventType.equals(MTSService.MTSEventType.didReceiveCardData)) {
+            if (event.mtsBeacon == mtsBeacon1) {
                 // Don't assign this here when the cardDataEditText is user-editable as the returned
                 // value includes the start/end sentinels.
                 // cardDataEditText.setText(cardData);
                 Log.v(TAG, "DidReceiveCardData");
             }
-            else if (MTSService.DidWriteCardDataToBluetooth.equals(action)){
-                Boolean success = intent.getExtras().getBoolean("DidWriteCardDataToBluetooth");
-                if (success) {
-                    Log.v(TAG, "DidWriteCardDataToBluetooth");
-
-                    Date now = new Date();
-                    String formattedDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(now);
-                    lastWriteAtTextView.setText("Last write at: " + formattedDate);
-                    mtsService.requestCardData();
-                } else {
-                    Log.v(TAG, "Failed to write cardData to Bluetooth.");
-                    lastWriteAtTextView.setText("Failed to write cardData via BLE.");
-                }
-            }
-            updateInterface();
         }
-    };
+        else if (event.eventType.equals(MTSService.MTSEventType.didWriteCardDataToBluetooth)) {
+            Boolean success = (Boolean) event.value;
+            if (success) {
+                Log.v(TAG, "DidWriteCardDataToBluetooth");
+                Date now = new Date();
+                String formattedDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(now);
+                lastWriteAtTextView.setText("Last write at: " + formattedDate);
+                mtsService.requestCardData(event.mtsBeacon);
+            } else {
+                Log.v(TAG, "Failed to write cardData to Bluetooth.");
+                lastWriteAtTextView.setText("Failed to write cardData via BLE.");
+            }
+        }
+        else if (event.eventType.equals(MTSService.MTSEventType.didReceiveSasSerialNumber)) {
+            if (null != mtsBeacon1) {
+                sasSerialNumberTextView.setText(event.value.toString());
+            }
+        }
+        else if (event.eventType.equals(MTSService.MTSEventType.didReceiveLocation)) {
+            if (null != mtsBeacon1) {
+                locationTextView.setText(event.value.toString());
+            }
+        }
+        else if (event.eventType.equals(MTSService.MTSEventType.didReceiveAssetNumber)) {
+            if (null != mtsBeacon1) {
+                assetNumberTextView.setText(event.value.toString());
+            }
+        }
+        else if (event.eventType.equals(MTSService.MTSEventType.didReceiveDenomination)) {
+            if (null != mtsBeacon1) {
+                denominationTextView.setText(event.value.toString());
+            }
+        }
+        else if (event.eventType.equals(MTSService.MTSEventType.didReceiveGmiLinkActive)) {
+            if (null != mtsBeacon1) {
+                gmiLinkActiveTextView.setText(event.value.toString());
+            }
+        }
+    }
 
-    private static IntentFilter mtsServiceUpdateIntentFilter() {
-        final IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(MTSService.BluetoothConnectionStateChanged);
-        intentFilter.addAction(MTSService.DidReceiveTerminalKind);
-        intentFilter.addAction(MTSService.DidReceiveStickyConnectionState);
-        intentFilter.addAction(MTSService.UpdateOnConnectedRSSIReceipt);
-        intentFilter.addAction(MTSService.DidReceiveCardData);
-        intentFilter.addAction(MTSService.DidWriteCardDataToBluetooth);
-        return intentFilter;
+    // Likely not relevant to customer implementation, but what is happening here:
+    // Demo support is requested for 0-2 two beacon connections, so find conditional rather than array handling in this example.
+    // The first beacon to connect is assigned mtsBeacon1.
+    // Only if a new beacon is connected while mtsBeacon1 is already assigned do we assign the new beacon to mtsBeacon2.
+    private void updateDisplayBeacons(MTSBluetoothConnectionEvent event) {
+
+        switch (event.connectionEvent) {
+            case connect:
+            if (null == mtsBeacon1) {
+                Log.v("","updateDisplayBeacons connect null == mtsBeacon1;");
+                mtsBeacon1 = event.mtsBeacon;
+            } else if (null == mtsBeacon2) {
+                Log.v("","updateDisplayBeacons connect null == mtsBeacon2;");
+                mtsBeacon2 = event.mtsBeacon;
+            } else {
+                Log.v("TAG", "unexpected assignment of more than two connected beacons.");
+            }
+            break;
+            case disconnect:
+            if (event.mtsBeacon == mtsBeacon1) {
+                Log.v("","updateDisplayBeacons disconnect mtsBeacon == mtsBeacon1;");
+                mtsBeacon1 = null;
+            } else if (event.mtsBeacon == mtsBeacon2) {
+                Log.v("","updateDisplayBeacons disconnect mtsBeacon == mtsBeacon2;");
+                mtsBeacon2 = null;
+            } else {
+                Log.v("TAG", "unexpected disconnect of an untracked beacon.");
+            }
+            break;
+        }
+        updateInterface();
     }
 
     // PlayerID Persistence
@@ -473,5 +657,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         editor.commit();
         Log.v("","setLastPlayerID: " + lastCardData());
     }
+
+
 
 }

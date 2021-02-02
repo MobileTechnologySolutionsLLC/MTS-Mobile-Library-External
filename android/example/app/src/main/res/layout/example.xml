@@ -49,7 +49,7 @@
             android:textColor="#444"
             />
 
-                <Button android:id="@+id/connection_status_button"
+        <Button android:id="@+id/connection_status_button1"
             android:textAllCaps="false"
             style="@style/Base.TextAppearance.AppCompat"
             android:layout_below="@+id/connection_status_header"
@@ -65,7 +65,7 @@
             android:layout_alignParentRight="true"
             />
 
-        <TextView android:id="@+id/connection_status_text_view"
+        <TextView android:id="@+id/connection_status_text_view1"
             android:layout_below="@+id/connection_status_header"
             android:layout_alignParentLeft="true"
             android:layout_alignParentRight="true"
@@ -81,8 +81,47 @@
             android:visibility="visible"
             />
 
+            <View android:id="@+id/connection_status_separator_view"
+                android:layout_below="@+id/connection_status_text_view1"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#DDD"
+                android:visibility="visible"/>
+
+            <Button android:id="@+id/connection_status_button2"
+                android:textAllCaps="false"
+                style="@style/Base.TextAppearance.AppCompat"
+                android:layout_below="@+id/connection_status_separator_view"
+                android:layout_height="60dp"
+                android:layout_width="match_parent"
+                android:text="Start Scanning"
+                android:background="@android:color/transparent"
+                android:textSize="17dp"
+                android:textColor="#000"
+                android:gravity="right|center"
+                android:paddingRight="15dp"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                />
+
+            <TextView android:id="@+id/connection_status_text_view2"
+                android:layout_below="@+id/connection_status_separator_view"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="Inactive"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
         <TextView android:id="@+id/connection_status_footer"
-            android:layout_below="@+id/connection_status_text_view"
+            android:layout_below="@+id/connection_status_text_view2"
             android:layout_centerHorizontal="true"
             android:layout_height="30dp"
             android:layout_width="match_parent"
@@ -148,7 +187,7 @@
             android:maxLength="4"
             />
 
-        <View android:id="@+id/autoconnect_separator_view"
+        <View android:id="@+id/autoconnect_separator_view2"
             android:layout_below="@+id/autoconnect_threshold_edit_text"
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -156,7 +195,7 @@
             android:visibility="visible"/>
 
         <TextView android:id="@+id/autodisconnect_label_text_view"
-            android:layout_below="@+id/autoconnect_separator_view"
+            android:layout_below="@+id/autoconnect_separator_view2"
             android:layout_alignParentLeft="true"
             android:layout_alignParentRight="true"
             android:layout_width="match_parent"
@@ -411,58 +450,8 @@
             />
 
 
-            <!--Sticky Connection-->
-
-            <TextView android:id="@+id/sticky_connection_header"
-                android:layout_below="@+id/terminal_id_footer"
-                android:layout_centerHorizontal="true"
-                android:layout_height="44dp"
-                android:layout_width="match_parent"
-                android:text="Sticky Connection"
-                android:textSize="14dp"
-                android:gravity="bottom|left"
-                android:paddingLeft="15dp"
-                android:paddingBottom="5dp"
-                android:layout_alignParentLeft="true"
-                android:background="#DDD"
-                android:textColor="#444"
-                />
-
-            <TextView android:id="@+id/sticky_connection_text_view"
-                android:layout_below="@+id/sticky_connection_header"
-                android:layout_alignParentLeft="true"
-                android:layout_alignParentRight="true"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_centerHorizontal="true"
-                android:background="@android:color/transparent"
-                android:textColor="#000"
-                android:text="- - -"
-                android:textSize="17dp"
-                android:gravity="left|center"
-                android:paddingLeft="15dp"
-                android:visibility="visible"
-                />
-
-            <TextView android:id="@+id/sticky_connection_footer"
-                android:layout_below="@+id/sticky_connection_text_view"
-                android:layout_centerHorizontal="true"
-                android:layout_height="wrap_content"
-                android:layout_width="match_parent"
-                android:text="This value is read from the card reader upon connection."
-                android:textSize="14dp"
-                android:gravity="top|left"
-                android:paddingLeft="15dp"
-                android:paddingTop="5dp"
-                android:layout_alignParentLeft="true"
-                android:background="#DDD"
-                android:textColor="#444"
-                />
-
-            <!--Sticky Connection-->
-
             <TextView android:id="@+id/connected_rssi_header"
-                android:layout_below="@+id/sticky_connection_footer"
+                android:layout_below="@+id/terminal_id_footer"
                 android:layout_centerHorizontal="true"
                 android:layout_height="44dp"
                 android:layout_width="match_parent"
@@ -476,7 +465,7 @@
                 android:textColor="#444"
                 />
 
-            <TextView android:id="@+id/connected_rssi_text_view"
+            <TextView android:id="@+id/connected_rssi_text_view1"
                 android:layout_below="@+id/connected_rssi_header"
                 android:layout_alignParentLeft="true"
                 android:layout_alignParentRight="true"
@@ -492,8 +481,24 @@
                 android:visibility="visible"
                 />
 
+            <TextView android:id="@+id/connected_rssi_text_view2"
+                android:layout_below="@+id/connected_rssi_text_view1"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
             <TextView android:id="@+id/connected_rssi_footer"
-                android:layout_below="@+id/connected_rssi_text_view"
+                android:layout_below="@+id/connected_rssi_text_view2"
                 android:layout_centerHorizontal="true"
                 android:layout_height="wrap_content"
                 android:layout_width="match_parent"
@@ -506,6 +511,202 @@
                 android:background="#DDD"
                 android:textColor="#444"
                 />
+
+            <!--SAS Serial Number-->
+
+            <TextView android:id="@+id/sas_serial_number_header"
+                android:layout_below="@+id/connected_rssi_footer"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="SAS Serial Number"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <TextView android:id="@+id/sas_serial_number_text_view"
+                android:layout_below="@+id/sas_serial_number_header"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <!--SAS Serial Number-->
+
+
+            <!--Location-->
+
+            <TextView android:id="@+id/location_header"
+                android:layout_below="@+id/sas_serial_number_text_view"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="Location"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <TextView android:id="@+id/location_text_view"
+                android:layout_below="@+id/location_header"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <!--Location-->
+
+
+            <!--Asset Number-->
+
+            <TextView android:id="@+id/asset_number_header"
+                android:layout_below="@+id/location_text_view"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="Asset Number"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <TextView android:id="@+id/asset_number_text_view"
+                android:layout_below="@+id/asset_number_header"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <!--Asset Number-->
+
+
+            <!--Denomination-->
+
+            <TextView android:id="@+id/denomination_header"
+                android:layout_below="@+id/asset_number_text_view"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="Denomination"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <TextView android:id="@+id/denomination_text_view"
+                android:layout_below="@+id/denomination_header"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <!--Denomination-->
+
+
+            <!--GMI Link Active-->
+
+            <TextView android:id="@+id/gmi_link_active_connection_header"
+                android:layout_below="@+id/denomination_text_view"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="GMI Link Active"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <TextView android:id="@+id/gmi_link_active_text_view"
+                android:layout_below="@+id/gmi_link_active_connection_header"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <TextView
+                android:id="@+id/gmi_link_active__footer"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_below="@+id/gmi_link_active_text_view"
+                android:layout_alignParentLeft="true"
+                android:layout_centerHorizontal="true"
+                android:background="#DDD"
+                android:gravity="top|left"
+                android:maxLines="20"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:paddingRight="15dp"
+                android:paddingBottom="15dp"
+                android:text=""
+                android:textColor="#444"
+                android:textSize="14dp" />
+            <!--GMI Link Active-->
 
 
         </RelativeLayout>

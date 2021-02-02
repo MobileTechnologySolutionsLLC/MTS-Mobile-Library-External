@@ -5,6 +5,7 @@ package com.mts.mts;
 
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
+import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -18,7 +19,7 @@ public class MTSBeacon {
     public int rssi;
     public byte[] scanRecordBytes;
     public Boolean isSelected = false;
-    public Boolean wantsStickyConnection = false;
+    public Boolean isGmiLinkActive = false;
     private String noValuePlaceholder = "- - -";
     public long firstDiscoveredAt;
     public long lastDiscoveredAt;
@@ -26,6 +27,8 @@ public class MTSBeacon {
     public int filteredRSSI;
     public String mfgIdentifier;
     private Context context;
+    // Used by the MTSManager to handle RSSI threshold disconnect evaluation for this beacon
+    public Boolean isCharacteristicDiscoveryComplete = false;
 
     MTSBeacon(BluetoothPeripheral peripheral, ScanResult scanResult, Context c) {
         this.peripheral = peripheral;
@@ -107,4 +110,10 @@ public class MTSBeacon {
         }
         return new String(hexChars);
     }
+
+    // AutoDisconnectCountdown - RSSI threshold + interval triggers disconnect.
+    Handler autoDisconnectTimeoutHandler = new Handler();
+    Boolean isAutoDisconnectTimerActive = false;
+
+
 }

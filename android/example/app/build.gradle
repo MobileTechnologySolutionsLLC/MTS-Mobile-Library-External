@@ -7,7 +7,7 @@ android {
         applicationId "com.mts.example"
         minSdkVersion 24
         targetSdkVersion 29
-        versionCode 27
+        versionCode 29
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -32,5 +32,6 @@ dependencies {
     compile 'com.github.karlotoy:perfectTune:1.0.2'
 
     compile project(':mts')
+    implementation 'org.greenrobot:eventbus:3.2.0'
 
 }
