@@ -262,7 +262,11 @@ public class MTSService extends Service {
             for (BluetoothGattService service : peripheral.getServices()) {
                 for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
                     handleCharacteristicDiscovery(characteristic, peripheral);
-                    peripheral.readCharacteristic(characteristic);
+                    // Skip the initial read of userDisconnectedCharacteristic.  The didUpdate for
+                    // this is evaluated as a response to a disconnect request.
+                    if (!userDisconnectedCharacteristicUUID.getUuid().equals(characteristic.getUuid())) {
+                        peripheral.readCharacteristic(characteristic);
+                    }
                 }
             }
         }
@@ -287,10 +291,9 @@ public class MTSService extends Service {
                 EventBus.getDefault().post(messageEvent);
             } else if (userDisconnectedCharacteristicUUID.getUuid().equals(characteristicUUID)) {
                 if( status == GATT_SUCCESS) {
-                    MTSBeacon mtsBeacon = connectedMTSBeaconFromPeripheral(peripheral);
+                    final MTSBeacon mtsBeacon = connectedMTSBeaconFromPeripheral(peripheral);
                     if (null != mtsBeacon) {
-                        disconnectIfNeeded(mtsBeacon);
-                        bluetoothConnectionEventOccurred(BluetoothConnectionEvent.disconnect, mtsBeacon);
+                        readCharacteristic(userDisconnectedCharacteristicUUID, mtsBeacon);
                     }
                 }
             }
@@ -454,6 +457,13 @@ public class MTSService extends Service {
                     mtsBeacon
             );
             EventBus.getDefault().post(messageEvent);
+        }
+        else if (userDisconnectedCharacteristicUUID.getUuid().equals(characteristicUUID)) {
+            // Even with BLEssed queueing, Android doesn't handling an immediate disconnect after writing,
+            // the intent characteristic as iOS does.  Wait to allow the receiving device to receive.
+            System.out.println("handleOnCharacteristicChanged userDisconnectedCharacteristicUUID");
+            disconnectIfNeeded(mtsBeacon);
+            bluetoothConnectionEventOccurred(BluetoothConnectionEvent.disconnect, mtsBeacon);
         }
         else if (sasSerialNumberCharacteristicUUID.getUuid().equals(characteristicUUID)) {
             String sasSerialNumber = "- - -";
