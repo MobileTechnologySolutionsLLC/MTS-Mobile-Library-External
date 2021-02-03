@@ -543,7 +543,7 @@ public class MTSService extends Service {
     }
 
     public void disconnect(MTSBeacon mtsBeacon) {
-        byte[] bytes = new byte[1];
+        byte[] bytes = new byte[]{1} ;
         writeCharacteristic(userDisconnectedCharacteristicUUID, bytes, WRITE_TYPE_DEFAULT, mtsBeacon);
     }
 

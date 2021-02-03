@@ -7,7 +7,7 @@ android {
         applicationId "com.mts.example"
         minSdkVersion 24
         targetSdkVersion 29
-        versionCode 29
+        versionCode 32
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -33,5 +33,4 @@ dependencies {
 
     compile project(':mts')
     implementation 'org.greenrobot:eventbus:3.2.0'
-
 }
