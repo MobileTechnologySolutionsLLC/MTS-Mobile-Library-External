@@ -310,6 +310,9 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
             stopScanTimeoutTimer()
         case .scanning:
             startScan()
+            startScanRefreshTimer()
+            startScanTimeoutTimer()
+            startExpirationTimer()
         }
         invokeBluetoothDiscoveryStateChangedDelegate(oldState: oldState, newState: newState)
     }
@@ -318,7 +321,9 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     // transition to scanning without user intervention.
     private func bluetoothConnectionEventOccurred(bluetoothEvent: BluetoothConnectionEvent, mtsBeacon: MTSBeacon?) {
         mtsBeacon?.autoDisconnectTimer.invalidate()
-        stopRSSIRefreshWhileConnectedTimer()
+        if 0 == connectedMTSBeacons.count {
+            stopRSSIRefreshWhileConnectedTimer()
+        }
         changeBluetoothDiscoveryState(newState: .inactive)
         switch bluetoothEvent {
         case .connect:
@@ -329,8 +334,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         invokeBluetoothBluetoothEventOccurred(bluetoothEvent: bluetoothEvent, mtsBeacon: mtsBeacon)
     }
     
-    
-    
+        
     //MARK: Timers Active While Connected
     
     // Read connected RSSI from each connected mtsBeacon each rssiRefreshWhileConnectedInterval.

@@ -54,7 +54,6 @@ public class MTSBeacon {
     public var manufacturerData: Data?
     public var advertisementBluetoothDeviceAddress: Data?
     public var terminalKind: TerminalKind = .unknown
-    public var wantsStickyConnection: Bool = false
     private static let kCompanyIdentifier = Data([0x00, 0xA0, 0x50])
     public var mfgIdentifier: Data?
     /// Used by the MTSManager to handle RSSI threshold disconnect evaluation for this beacon
