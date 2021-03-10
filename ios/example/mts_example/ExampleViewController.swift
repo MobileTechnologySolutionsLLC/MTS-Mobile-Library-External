@@ -27,6 +27,7 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     @IBOutlet var assetNumberLabel: UILabel?
     @IBOutlet var denominationLabel: UILabel?
     @IBOutlet var gmiLinkActiveLabel: UILabel?
+    @IBOutlet var txAttenuationLevelLabel: UILabel?
     
     let mtsManager = MTSManager.sharedInstance
     let statusCellIndexPath = IndexPath(row: 0, section: 0)
@@ -36,11 +37,16 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     var mtsBeacon1: MTSBeacon?
     var mtsBeacon2: MTSBeacon?
     
+    // This serviceUUID is implementation-specific, i.e. MTS will provide it to you.
+    let kMTSServiceUUID = "6289B88C-E219-45AA-868E-92286187DEDF";
+    
     override func viewDidLoad() {
         super.viewDidLoad()
+        mtsManager.setServiceUUID(uuidString: kMTSServiceUUID)
         mtsManager.loggingEnabled = true
         mtsManager.delegate.addDelegate(self)
         addToolbarToNumberPads()
+        registerUserDefaults()
         updateInterface()
     }
     
@@ -56,7 +62,7 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         scanTimeoutTextField?.text = String(mtsManager.scanTimeoutInterval)
         updateCardDataInputStates()
         updateConnectedTerminalIdentifiers()
-        
+        txAttenuationLevelLabel?.text = "\(lastTxAttenuationLevel.rawValue)"
         if nil == mtsBeacon1 {
             connectedRSSILabel1?.text = MTSConstants.noValuePlaceholder
         }
@@ -205,6 +211,11 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
+        if 2 == indexPath.section {
+            showTxAttenuationOptions()
+            return
+        }
+        
         guard statusCellIndexPath.section == indexPath.section else {
             return
         }
@@ -254,6 +265,7 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         if .connect == bluetoothEvent, let mtsBeacon = mtsBeacon {
             playConnectSound()
             writeExampleCardData(mtsBeacon: mtsBeacon)
+            writeTxAttenuationLevel(mtsBeacon: mtsBeacon)
         }
         else if .disconnect == bluetoothEvent {
             playDisconnectSound()
@@ -292,6 +304,10 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
             }
         }
         tableView.reloadData()
+    }
+    
+    func writeTxAttenuationLevel(mtsBeacon: MTSBeacon) {
+        mtsManager.writeTxAttenuationLevel(level: lastTxAttenuationLevel, mtsBeacon: mtsBeacon)
     }
     
     func writeExampleCardData(mtsBeacon: MTSBeacon) {
@@ -398,6 +414,12 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         gmiLinkActiveLabel?.text = isActive ? "Active" : "Inactive"
     }
     
+    func receivedTxAttenuationLevel(level: TxAttenuationLevel, mtsBeacon: MTSBeacon) {
+        guard mtsBeacon == mtsBeacon1 else { return }
+        // N.B. interface in the example shows the last value selected by the operator.
+        // This function need not update the interface with read response values.
+    }
+
     
     // MARK: Connect/Disconnect Sounds
     
@@ -475,7 +497,45 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
             writeCardDataToBeacon(mtsBeacon1)
         }
     }
+    
+    @IBAction func showTxAttenuationOptions() {
+        let alert = UIAlertController(title: "Tx Attenuation Level",
+                   message: "",
+                   preferredStyle: .actionSheet)
+        
+        for level in TxAttenuationLevel.allCases {
+            alert.addAction(
+                UIAlertAction(title: "\(level.rawValue)",
+                          style: .default) { (action) in
+                    self.lastTxAttenuationLevel = level
+                    self.updateInterface()
+                }
+            )
+        }
+       self.present(alert, animated: true) {}
+    }
 
+    var lastTxAttenuationLevel: TxAttenuationLevel {
+        get {
+            var level = TxAttenuationLevel.zero
+            let raw = UserDefaults.standard.integer(forKey: kTxAttenuationLevelUserDefaultKey)
+            if let value = TxAttenuationLevel(rawValue: UInt8(raw)) {
+                level = value
+            }
+            return level
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: kTxAttenuationLevelUserDefaultKey)
+        }
+    }
+
+    let kTxAttenuationLevelUserDefaultKey = "kTxAttenuationLevelUserDefaultKey"
+    private func registerUserDefaults() {
+        UserDefaults.standard.register(defaults: [
+            kTxAttenuationLevelUserDefaultKey : TxAttenuationLevel.zero.rawValue
+        ])
+    }
+    
 }
 
 // Helper function inserted by Swift 4.2 migrator.

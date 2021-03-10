@@ -30,6 +30,7 @@ public protocol MTSManagerDelegate {
     func receivedAssetNumber(assetNumber: UInt32, mtsBeacon: MTSBeacon)
     func receivedDenomination(denomination: UInt32, mtsBeacon: MTSBeacon)
     func receivedGmiLinkActive(isActive: Bool, mtsBeacon: MTSBeacon)
+    func receivedTxAttenuationLevel(level: TxAttenuationLevel, mtsBeacon: MTSBeacon)
 }
 
 public extension MTSManagerDelegate {
@@ -57,6 +58,13 @@ enum MTSError: Error {
     case writeFailure(description: String)
 }
 
+public enum TxAttenuationLevel: UInt8, CaseIterable {
+    case zero  = 0
+    case one   = 1
+    case two   = 2
+    case three = 3
+}
+
 public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     
     // MARK: Public Properties
@@ -74,7 +82,8 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     private var requiredCharacteristics = [MTSCharacteristic]()
     public var connectedMTSBeacons = [MTSBeacon]()
     private var discoveredBeacons = [MTSBeacon]()
-
+    private var serviceUUID: CBUUID?
+    
     private var scanRefreshTimer = Timer()
     private let kScanRefreshInterval = 5.0
     
@@ -92,7 +101,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
 
     private let maxRSSIThresholdValue = 0
     private let minRSSIThresholdValue = -100
-        
+    
     private enum UserDefaultKey: String {
         case autoConnectEnabled
         case autoConnectThreshold
@@ -105,7 +114,6 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     }
     
     private enum MTSService: String {
-        case mts                = "C1FB6CDA-3F15-4BC0-8A46-8E9C341065F8"
         case machineInfoSvc     = "C83FE52E-0AB5-49D9-9817-98982B4C48A3"
         var uuid: CBUUID {
             return CBUUID(string: self.rawValue)
@@ -122,7 +130,8 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         case assetNumber        = "D77A787D-E75D-4370-8CAC-6DCFE37DBB92"    // uint32, read-only.
         case denomination       = "7B9432C6-465A-40FA-A13B-03544B6F0742"    // uint32, read-only, unit is cents.
         case gmiLinkActive      = "023B4A4A-579C-495F-A61E-D3BBBFD63C4A"    // bool, read/notify, cardreader's link state for it's GMI interface as active (0x01) or inactive (0x00).
-    
+        case txAttenuationLevel = "51D25B72-68BB-4022-9F71-0CC3DD23A032"    // uint8, read/write, change the attenuation on the device transmitter.  Allowable range is `0x00` = no attenuation through `0x03` = max attenuation (approx. -18dB).
+                
         var uuid: CBUUID {
             return CBUUID(string: self.rawValue)
         }
@@ -130,10 +139,14 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         // characteristics.  If all deployed mtsBeacons will support all characteristics, it
         // is preferable to include them all in this list.  Why: ensure characteristic
         // discovery completes prior to read/write attempts.
-        static let requiredCharacteristics = [cardData, terminalKind, userDisconnected]
+        static let requiredCharacteristics = [cardData, terminalKind, userDisconnected, txAttenuationLevel]
     }
 
     // MARK: Public Methods
+    
+    public func setServiceUUID(uuidString: String) {
+        serviceUUID = CBUUID(string: uuidString)
+    }
     
     public func startScanning() {
         changeBluetoothDiscoveryState(newState: .scanning)
@@ -204,6 +217,19 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         return cardDataCharacterCountMax >= cardDataString.count
     }
     
+    public func writeTxAttenuationLevel(level: TxAttenuationLevel, mtsBeacon: MTSBeacon) {
+        let peripheral = mtsBeacon.peripheral
+        
+        guard let characteristic = characteristic(.txAttenuationLevel, mtsBeacon: mtsBeacon) else {
+            logIfEnabled("\(#function) Failed at characteristic lookup.")
+            return
+        }
+        
+        let data = Data([level.rawValue])
+        NSLog("\(#function) level: \(level) data: \(data.hex)")
+        peripheral.writeValue(data, for: characteristic, type: .withResponse)
+    }
+    
     //MARK: Setup
     
     override init() {
@@ -232,8 +258,12 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
             return
             
         }
+        guard let serviceUUID = serviceUUID else {
+            logIfEnabled("Please assign the serviceUUID provided by MTS.")
+            return
+        }
         centralManager.scanForPeripherals(
-            withServices: [MTSService.mts.uuid],
+            withServices: [serviceUUID],
             options:[CBCentralManagerScanOptionAllowDuplicatesKey:true]
         )
     }
@@ -512,10 +542,14 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     }
     
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        guard let serviceUUID = serviceUUID else {
+            logIfEnabled("Please assign the serviceUUID provided by MTS.")
+            return
+        }
         stopScan()
         requiredCharacteristics = MTSCharacteristic.requiredCharacteristics
         peripheral.delegate = self
-        peripheral.discoverServices([MTSService.mts.uuid, MTSService.machineInfoSvc.uuid])
+        peripheral.discoverServices([serviceUUID, MTSService.machineInfoSvc.uuid])
         // N.B. Defer the .connected state transition until discovery of required characteristics.
     }
     
@@ -546,8 +580,11 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     }
     
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        
-        guard [MTSService.mts.uuid, MTSService.machineInfoSvc.uuid].contains(service.uuid) else {
+        guard let serviceUUID = serviceUUID else {
+            logIfEnabled("Please assign the serviceUUID provided by MTS.")
+            return
+        }
+        guard [serviceUUID, MTSService.machineInfoSvc.uuid].contains(service.uuid) else {
             return
         }
         
@@ -567,6 +604,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
             }
 
             if mtsCharacteristic == MTSCharacteristic.gmiLinkActive {
+                NSLog("\(#function) .gmiLinkActive setNotifyValue uuid: \(characteristic.uuid.uuidString)")
                 peripheral.setNotifyValue(true, for: characteristic)
             }
             
@@ -630,6 +668,13 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
             let active   = UInt8(0x01)
             let isActive = active == value[0]
             invokeReceivedGmiLinkActive(isActive: isActive, mtsBeacon: connectedMTSBeacon)
+        case .txAttenuationLevel:
+            let byte = value[0];
+            guard let level = TxAttenuationLevel(rawValue: byte) else {
+                logIfEnabled("Unexpected txAttenuationLevel: \(value.hex)")
+                return;
+            }
+            invokeReceivedTxAttenuationLevel(level: level, mtsBeacon: connectedMTSBeacon)
         }
     }
     
@@ -683,8 +728,12 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
             logIfEnabled("\(#function) Failed at guard let services = peripheral.services.")
             return nil
         }
+        guard let serviceUUID = serviceUUID else {
+            logIfEnabled("Please assign the serviceUUID provided by MTS.")
+            return nil
+        }
         for service in services {
-            guard MTSService.mts.uuid == service.uuid else {
+            guard serviceUUID == service.uuid else {
                 continue
             }
             guard let characteristics = service.characteristics else {
@@ -807,6 +856,14 @@ private extension MTSManager {
         DispatchQueue.main.async {
             self.delegate.invokeDelegates({ delegate in
                 delegate.receivedGmiLinkActive(isActive: isActive, mtsBeacon: mtsBeacon)
+            })
+        }
+    }
+    
+    func invokeReceivedTxAttenuationLevel(level: TxAttenuationLevel, mtsBeacon: MTSBeacon) {
+        DispatchQueue.main.async {
+            self.delegate.invokeDelegates({ delegate in
+                delegate.receivedTxAttenuationLevel(level: level, mtsBeacon: mtsBeacon)
             })
         }
     }

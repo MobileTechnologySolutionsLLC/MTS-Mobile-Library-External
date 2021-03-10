@@ -30,11 +30,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.ListIterator;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static android.bluetooth.BluetoothGatt.CONNECTION_PRIORITY_HIGH;
 import static android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT;
 import static com.mts.mts.BluetoothPeripheral.GATT_SUCCESS;
-import static com.mts.mts.BluetoothPeripheral.STATE_CONNECTED;
 
 public class MTSService extends Service {
 
@@ -58,7 +58,19 @@ public class MTSService extends Service {
         didReceiveLocation,
         didReceiveAssetNumber,
         didReceiveDenomination,
-        didReceiveGmiLinkActive
+        didReceiveGmiLinkActive,
+        didReceiveTxAttenuationLevel
+    }
+
+    public enum TxAttenuationLevel {
+        zero  (0),
+        one   (1),
+        two   (2),
+        three (3);
+        private final int value;
+        private TxAttenuationLevel(int value) {
+            this.value = value;
+        }
     }
 
     public MTSService() {
@@ -72,7 +84,7 @@ public class MTSService extends Service {
 
     public int cardDataCharacterCountMax = 195; // 195 + automatic null termination, so 196 total accepted by the peripheral.
     private int kRSSIUnavailableValue = 127;
-    private UUID mtsServiceUUID         = UUID.fromString("C1FB6CDA-3F15-4BC0-8A46-8E9C341065F8");
+    private UUID mtsServiceUUID = null; // This must be assigned upon service initialization.
     private UUID machineInfoServiceUUID = UUID.fromString("C83FE52E-0AB5-49D9-9817-98982B4C48A3");
     private ParcelUuid cardDataCharacteristicUUID = ParcelUuid.fromString("60D11359-FEB2-411D-A430-CA6167052BD6");
     private ParcelUuid terminalKindCharacteristicUUID = ParcelUuid.fromString("D308DFDE-9F06-4A73-A2C7-EB952E40A184");
@@ -83,6 +95,7 @@ public class MTSService extends Service {
     private ParcelUuid assetNumberCharacteristicUUID = ParcelUuid.fromString("D77A787D-E75D-4370-8CAC-6DCFE37DBB92");   // uint32, read-only.
     private ParcelUuid denominationCharacteristicUUID = ParcelUuid.fromString("7B9432C6-465A-40FA-A13B-03544B6F0742");  // uint32, read-only, unit is cents.
     private ParcelUuid gmiLinkActiveCharacteristicUUID = ParcelUuid.fromString("023B4A4A-579C-495F-A61E-D3BBBFD63C4A"); // bool, read/notify, cardreader's link state for it's GMI interface as active (0x01) or inactive (0x00).
+    private ParcelUuid txAttenLevelCharacteristicUUID = ParcelUuid.fromString("51D25B72-68BB-4022-9F71-0CC3DD23A032"); // uint8, read/write, change the attenuation on the device transmitter.  Allowable range is `0x00` = no attenuation through `0x03` = max attenuation (approx. -18dB).
 
     private BluetoothCentral central;
     private Context context;
@@ -195,8 +208,9 @@ public class MTSService extends Service {
         return START_NOT_STICKY;
     }
 
-    public boolean initialize(Context context) {
+    public boolean initialize(Context context, UUID serviceUUID) {
         this.context = context;
+        this.mtsServiceUUID = serviceUUID;
         central = new BluetoothCentral(context, bluetoothCentralCallback, new Handler());
         return true;
     }
@@ -224,7 +238,8 @@ public class MTSService extends Service {
             locationCharacteristicUUID,
             assetNumberCharacteristicUUID,
             denominationCharacteristicUUID,
-            gmiLinkActiveCharacteristicUUID
+            gmiLinkActiveCharacteristicUUID,
+            txAttenLevelCharacteristicUUID
         ));
 
     private void handleCharacteristicDiscovery(BluetoothGattCharacteristic characteristic, BluetoothPeripheral peripheral) {
@@ -355,7 +370,8 @@ public class MTSService extends Service {
             requiredCharacteristics = new ArrayList<ParcelUuid>(Arrays.asList(
                     cardDataCharacteristicUUID,
                     terminalKindCharacteristicUUID,
-                    userDisconnectedCharacteristicUUID
+                    userDisconnectedCharacteristicUUID,
+                    txAttenLevelCharacteristicUUID
             ));
             peripheral.requestMtu(256);
         }
@@ -529,6 +545,15 @@ public class MTSService extends Service {
             EventBus.getDefault().post(messageEvent);
         }
 
+        else if (txAttenLevelCharacteristicUUID.getUuid().equals(characteristicUUID)) {
+            byte txAttenuationLevel = value[0];
+            MTSBeaconEvent messageEvent = new MTSBeaconEvent(
+                    MTSEventType.didReceiveTxAttenuationLevel,
+                    txAttenuationLevel,
+                    mtsBeacon
+            );
+            EventBus.getDefault().post(messageEvent);
+        }
     }
 
 
@@ -590,7 +615,7 @@ public class MTSService extends Service {
         }
 
         mtsBeacon.peripheral.writeCharacteristic(characteristic, value, writeType);
-        Log.v("","writeCharacteristic complete for " + characteristicUUID.toString() + " with data: " );
+        Log.v("","writeCharacteristic complete for " + characteristicUUID.toString() + " with data: " + bytesToHex(value) );
     }
 
     public void requestTerminalKind(MTSBeacon mtsBeacon) {
@@ -615,6 +640,12 @@ public class MTSService extends Service {
         writeCharacteristic(cardDataCharacteristicUUID, data, WRITE_TYPE_DEFAULT, mtsBeacon);
 
         return true;
+    }
+
+    public void writeTxAttenuationLevel(TxAttenuationLevel level, MTSBeacon mtsBeacon) {
+        byte b = (byte)level.value;
+        byte[] bytes = new byte[]{b} ;
+        writeCharacteristic(txAttenLevelCharacteristicUUID, bytes, WRITE_TYPE_DEFAULT, mtsBeacon);
     }
 
     final private static char[] hexArray = "0123456789ABCDEF".toCharArray();

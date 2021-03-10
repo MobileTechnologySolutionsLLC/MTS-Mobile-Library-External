@@ -135,11 +135,50 @@
             android:textColor="#444"
             />
 
+            <!--Tx Attenuation-->
+
+        <TextView android:id="@+id/tx_attn_header"
+            android:layout_below="@+id/connection_status_footer"
+            android:layout_centerHorizontal="true"
+            android:layout_height="44dp"
+            android:layout_width="match_parent"
+            android:text="Tx Attenuation Level"
+            android:textSize="14dp"
+            android:gravity="bottom|left"
+            android:paddingLeft="15dp"
+            android:paddingBottom="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
+
+        <Spinner
+            android:id="@+id/tx_attn_spinner"
+            android:layout_below="@+id/tx_attn_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:drawable/btn_dropdown"
+            android:spinnerMode="dropdown"/>
+
+        <TextView android:id="@+id/tx_attn_footer"
+            android:layout_below="@+id/tx_attn_spinner"
+            android:layout_centerHorizontal="true"
+            android:layout_height="30dp"
+            android:layout_width="match_parent"
+            android:text="Default 0 is no attenuation. 3 is approx. -18dB."
+            android:textSize="14dp"
+            android:gravity="top|left"
+            android:paddingLeft="15dp"
+            android:paddingTop="5dp"
+            android:layout_alignParentLeft="true"
+            android:background="#DDD"
+            android:textColor="#444"
+            />
 
         <!--RSSI Thresholds-->
 
         <TextView android:id="@+id/rssi_threshold_header"
-            android:layout_below="@+id/connection_status_footer"
+            android:layout_below="@+id/tx_attn_footer"
             android:layout_centerHorizontal="true"
             android:layout_height="44dp"
             android:layout_width="match_parent"

@@ -11,7 +11,6 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -22,8 +21,11 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.karlotoy.perfectune.instance.PerfectTune;
@@ -33,15 +35,13 @@ import com.mts.mts.MTSBluetoothConnectionEvent;
 import com.mts.mts.MTSBluetoothDiscoveryStateEvent;
 import com.mts.mts.MTSService;
 
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.UUID;
 
 import static android.text.TextUtils.isEmpty;
 import static com.mts.mts.MTSService.BluetoothConnectionEvent.connect;
-import static com.mts.mts.MTSService.BluetoothDiscoveryState.inactive;
-import static com.mts.mts.MTSService.BluetoothDiscoveryState.notReady;
-import static com.mts.mts.MTSService.BluetoothDiscoveryState.scanning;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -61,6 +61,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     private TextView connectionStatusTextView1;
     private Button connectionStateButton2;
     private TextView connectionStatusTextView2;
+    private Spinner txAttnSpinner;
     private EditText autoConnectThresholdEditText;
     private EditText autoDisconnectThresholdEditText;
     private EditText scanDurationTimeoutEditText;
@@ -79,6 +80,9 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
     private MTSBeacon mtsBeacon1;
     private MTSBeacon mtsBeacon2;
+
+    // This serviceUUID is implementation-specific, i.e. MTS will provide it to you.
+    UUID kMTSServiceUUID = UUID.fromString("6289B88C-E219-45AA-868E-92286187DEDF");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -284,6 +288,13 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         });
         connectionStatusTextView2 = (TextView) findViewById(R.id.connection_status_text_view2);
 
+        txAttnSpinner = (Spinner) findViewById(R.id.tx_attn_spinner);
+        String[] txAttenLevelOptions = getNames(MTSService.TxAttenuationLevel.class);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, txAttenLevelOptions);
+        txAttnSpinner.setAdapter(adapter);
+        txAttnSpinner.setSelection(lastTxAttenuationLevel());
+        txAttnSpinner.setOnItemSelectedListener(txAttnSpinnerOnItemSelectedListener);
+
         autoConnectThresholdEditText = (EditText) findViewById(R.id.autoconnect_threshold_edit_text);
         autoConnectThresholdEditText.addTextChangedListener(autoConnectThresholdEditTextWatcher);
 
@@ -327,6 +338,21 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         gmiLinkActiveTextView = (TextView) findViewById(R.id.gmi_link_active_text_view);
 
         populateFormValues();
+    }
+
+    AdapterView.OnItemSelectedListener txAttnSpinnerOnItemSelectedListener = new AdapterView.OnItemSelectedListener() {
+        @Override
+        public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+            MTSService.TxAttenuationLevel level = MTSService.TxAttenuationLevel.values()[position];
+            setLastTxAttenuationLevel(position);
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parentView) {}
+    };
+
+    public static String[] getNames(Class<? extends Enum<?>> e) {
+        return Arrays.toString(e.getEnumConstants()).replaceAll("^.|.$", "").split(", ");
     }
 
     private TextWatcher autoConnectThresholdEditTextWatcher = new TextWatcher(){
@@ -474,7 +500,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder service) {
             mtsService = ((MTSService.LocalBinder) service).getService();
-            if (!mtsService.initialize(getApplicationContext())) {
+            if (!mtsService.initialize(getApplicationContext(), kMTSServiceUUID)) {
                 Log.e(TAG, "Failed to initialize MTSService");
                 finish();
             } else {
@@ -527,6 +553,10 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             requestTerminalKind();
             mtsService.writeCardDataToBluetooth(lastCardData(), event.mtsBeacon);
             lastWriteAtTextView.setText("Last write: none since connect.");
+            int position = lastTxAttenuationLevel();
+            MTSService.TxAttenuationLevel level = MTSService.TxAttenuationLevel.values()[position];
+            System.out.println("post-connect write level: " + level);
+            mtsService.writeTxAttenuationLevel(level, event.mtsBeacon);
         }
         else if (event.connectionEvent.equals(MTSService.BluetoothConnectionEvent.disconnect)) {
             playDisconnectSound();
@@ -599,6 +629,13 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
                 gmiLinkActiveTextView.setText(event.value.toString());
             }
         }
+        else if (event.eventType.equals(MTSService.MTSEventType.didReceiveTxAttenuationLevel)) {
+            if (null != mtsBeacon1) {
+                byte b = (byte) event.value;
+                int position = b &255;
+                System.out.println("Example didReceiveTxAttenuationLevel position: " + position);
+            }
+        }
     }
 
     // Likely not relevant to customer implementation, but what is happening here:
@@ -658,6 +695,24 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         Log.v("","setLastPlayerID: " + lastCardData());
     }
 
+    // Tx Attenuation Level Persistence
+    private static String kTxAttenLevelPreferenceKey = "kTxAttenLevelPreferenceKey";
+    private static int kTxAttenLevelPreferenceKeyDefault = 2;
 
+    int lastTxAttenuationLevel() {
+        SharedPreferences sharedPreferences = this.getApplicationContext().getSharedPreferences(
+                kSharedPreferenceKey, Context.MODE_PRIVATE);
+        int value = sharedPreferences.getInt(kTxAttenLevelPreferenceKey, kTxAttenLevelPreferenceKeyDefault);
+        return value;
+    }
+
+    void setLastTxAttenuationLevel(int enumPosition) {
+        SharedPreferences sharedPreferences =
+                this.getApplicationContext().getSharedPreferences(kSharedPreferenceKey, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putInt(kTxAttenLevelPreferenceKey, enumPosition);
+        editor.commit();
+        Log.v("","setLastTxAttenuationLevel: " + enumPosition);
+    }
 
 }
