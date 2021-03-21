@@ -11,6 +11,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -35,6 +36,7 @@ import com.mts.mts.MTSBluetoothConnectionEvent;
 import com.mts.mts.MTSBluetoothDiscoveryStateEvent;
 import com.mts.mts.MTSService;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -81,6 +83,9 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     private MTSBeacon mtsBeacon1;
     private MTSBeacon mtsBeacon2;
 
+    private MediaPlayer connectMediaPlayer;
+    private MediaPlayer disconnectMediaPlayer;
+
     // This serviceUUID is implementation-specific, i.e. MTS will provide it to you.
     UUID kMTSServiceUUID = UUID.fromString("6289B88C-E219-45AA-868E-92286187DEDF");
 
@@ -94,6 +99,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         addListeners();
         updateInterface();
         activateDeviceScreenIfDebugging();
+        setupMediaPlayers();
     }
 
     @Override
@@ -110,6 +116,8 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         requestPermissionsIfNeeded();
         pruneAssignedBeaconsIfNeeded();
         updateInterface();
+
+
     }
 
     @Override
@@ -130,7 +138,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     public void onPause() {
         System.out.println("ExampleActivity onPause");
         super.onPause();
-        perfectTune.stopTune();
+
     }
 
     @Override
@@ -140,6 +148,19 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         Intent serviceIntent = new Intent(this, MTSService.class);
         stopService(serviceIntent);
         mtsService = null;
+        tearDownMediaPlayers();
+    }
+
+    private void setupMediaPlayers() {
+        connectMediaPlayer = MediaPlayer.create(this, R.raw.connect);
+        disconnectMediaPlayer = MediaPlayer.create(this, R.raw.disconnect);
+    }
+
+    private void tearDownMediaPlayers() {
+        connectMediaPlayer.release();
+        connectMediaPlayer=null;
+        disconnectMediaPlayer.release();
+        disconnectMediaPlayer=null;
     }
 
     // This example activity updates the interface based on mtsBeacon1/2 assignments.
@@ -222,40 +243,30 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
                 button.setText("Stop Scanning");
                 break;
         }
-        autoDisconnectHandler.postDelayed( new Runnable() {
-            @Override
-            public void run() {
-                perfectTune.stopTune();
-            }
-        }, 500);
     }
 
 
     // MARK: Connect/Disconnect Sounds
 
     private void playConnectedSound() {
-        perfectTune.setTuneFreq(kAutoConnectThresholdToneFrequency);
-        MTSBeacon beacon = mtsService.selectedBeacon();
-        if (null == beacon) {
-            perfectTune.playTune();
+        if (null == connectMediaPlayer)  {
+            return;
         }
-        autoDisconnectHandler.postDelayed( new Runnable() {
-            @Override
-            public void run() {
-                perfectTune.stopTune();
-            }
-        }, 500);
+        if (connectMediaPlayer.isPlaying()) {
+            return;
+        }
+        connectMediaPlayer.start();
     }
 
     private void playDisconnectSound() {
-        perfectTune.setTuneFreq(kAutoDisconnectThresholdToneFrequency);
-        perfectTune.playTune();
-        autoDisconnectHandler.postDelayed( new Runnable() {
-            @Override
-            public void run() {
-                perfectTune.stopTune();
-            }
-        }, 500);    }
+        if (null == disconnectMediaPlayer)  {
+            return;
+        }
+        if (disconnectMediaPlayer.isPlaying()) {
+            return;
+        }
+        disconnectMediaPlayer.start();
+    }
 
     private void activateDeviceScreenIfDebugging() {
         if (BuildConfig.DEBUG) {

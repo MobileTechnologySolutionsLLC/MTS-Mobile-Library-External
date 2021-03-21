@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		721A0A342607CDC7005780EB /* connect.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 721A0A322607CDC7005780EB /* connect.mp3 */; };
+		721A0A352607CDC7005780EB /* disconnect.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 721A0A332607CDC7005780EB /* disconnect.mp3 */; };
 		724052551F2016660007944D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724052541F2016660007944D /* AppDelegate.swift */; };
 		7240525A1F2016660007944D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 724052581F2016660007944D /* Main.storyboard */; };
 		7240525C1F2016660007944D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7240525B1F2016660007944D /* Assets.xcassets */; };
@@ -32,6 +34,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		721A0A322607CDC7005780EB /* connect.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = connect.mp3; sourceTree = "<group>"; };
+		721A0A332607CDC7005780EB /* disconnect.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = disconnect.mp3; sourceTree = "<group>"; };
 		724052511F2016660007944D /* MTS Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MTS Example.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		724052541F2016660007944D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		724052591F2016660007944D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -57,6 +61,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		721A0A312607CDA8005780EB /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				721A0A322607CDC7005780EB /* connect.mp3 */,
+				721A0A332607CDC7005780EB /* disconnect.mp3 */,
+			);
+			path = Sounds;
+			sourceTree = "<group>";
+		};
 		724052481F2016660007944D = {
 			isa = PBXGroup;
 			children = (
@@ -84,6 +97,7 @@
 				7240525D1F2016660007944D /* LaunchScreen.storyboard */,
 				724052601F2016660007944D /* Info.plist */,
 				7240525B1F2016660007944D /* Assets.xcassets */,
+				721A0A312607CDA8005780EB /* Sounds */,
 			);
 			path = mts_example;
 			sourceTree = "<group>";
@@ -164,6 +178,8 @@
 				7240525F1F2016660007944D /* LaunchScreen.storyboard in Resources */,
 				7240525C1F2016660007944D /* Assets.xcassets in Resources */,
 				7240525A1F2016660007944D /* Main.storyboard in Resources */,
+				721A0A342607CDC7005780EB /* connect.mp3 in Resources */,
+				721A0A352607CDC7005780EB /* disconnect.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -327,7 +343,7 @@
 				CODE_SIGN_ENTITLEMENTS = "mts_example/MTS Example.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 25;
+				CURRENT_PROJECT_VERSION = 26;
 				DEVELOPMENT_TEAM = 7BC4LV582K;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -352,7 +368,7 @@
 				CODE_SIGN_ENTITLEMENTS = "mts_example/MTS Example.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 25;
+				CURRENT_PROJECT_VERSION = 26;
 				DEVELOPMENT_TEAM = 7BC4LV582K;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",

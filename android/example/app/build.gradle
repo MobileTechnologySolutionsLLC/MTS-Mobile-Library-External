@@ -7,7 +7,7 @@ android {
         applicationId "com.mts.example"
         minSdkVersion 24
         targetSdkVersion 29
-        versionCode 32
+        versionCode 33
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -17,6 +17,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+//    task wrapper(type: Wrapper) {
+//        gradleVersion = '4.1.2'
+//    }
 }
 
 dependencies {

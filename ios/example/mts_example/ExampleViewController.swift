@@ -4,7 +4,7 @@
 //
 
 import UIKit
-import AudioToolbox
+import AVFoundation
 
 class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFieldDelegate {
 
@@ -48,6 +48,7 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         addToolbarToNumberPads()
         registerUserDefaults()
         updateInterface()
+        setupAudioPlayers()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -420,19 +421,32 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
         // This function need not update the interface with read response values.
     }
 
-    
     // MARK: Connect/Disconnect Sounds
     
+    var connectAVAudioPlayer: AVAudioPlayer?
+    var disconnectAVAudioPlayer: AVAudioPlayer?
+    
+    private func setupAudioPlayers() {
+        guard let connectPath = Bundle.main.path(forResource: "connect", ofType: "mp3") else {
+            return
+        }
+        let connectURL = NSURL.fileURL(withPath: connectPath)
+        connectAVAudioPlayer = try? AVAudioPlayer(contentsOf: connectURL)
+
+        guard let disconnectPath = Bundle.main.path(forResource: "disconnect", ofType: "mp3") else {
+            return
+        }
+        let disconnectURL = NSURL.fileURL(withPath: disconnectPath)
+        disconnectAVAudioPlayer = try? AVAudioPlayer(contentsOf: disconnectURL)
+    }
+    
     public func playConnectSound() {
-        let systemSoundID: SystemSoundID = 1115
-        AudioServicesPlaySystemSound(systemSoundID)
+        connectAVAudioPlayer?.play()
     }
     
     public func playDisconnectSound() {
-        let systemSoundID: SystemSoundID = 1116
-        AudioServicesPlaySystemSound(systemSoundID)
+        disconnectAVAudioPlayer?.play()
     }
-    
     
     // MARK: UITextField
     
