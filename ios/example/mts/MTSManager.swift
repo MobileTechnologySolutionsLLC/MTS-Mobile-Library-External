@@ -14,6 +14,7 @@ public enum BluetoothDiscoveryState {
 
 public enum BluetoothConnectionEvent {
     case connect
+    case pendingUserDisconnect
     case disconnect
 }
 
@@ -46,6 +47,7 @@ public extension MTSManagerDelegate {
     func receivedAssetNumber(assetNumber: UInt32, mtsBeacon: MTSBeacon){}
     func receivedDenomination(denomination: UInt32, mtsBeacon: MTSBeacon){}
     func receivedGmiLinkActive(isActive: Bool, mtsBeacon: MTSBeacon){}
+    func receivedTxAttenuationLevel(level: TxAttenuationLevel, mtsBeacon: MTSBeacon){}
 }
 
 struct MTSConstants {
@@ -172,7 +174,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
     
     private func disconnectUponDidWriteofUserDisconnected(mtsBeacon: MTSBeacon) {
         disconnectIfNeeded(mtsBeacon)
-        bluetoothConnectionEventOccurred(bluetoothEvent: .disconnect, mtsBeacon: mtsBeacon)
+        bluetoothConnectionEventOccurred(bluetoothEvent: .pendingUserDisconnect, mtsBeacon: mtsBeacon)
     }
     
     public func requestCardData(mtsBeacon: MTSBeacon) {
@@ -358,6 +360,8 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         switch bluetoothEvent {
         case .connect:
             startRSSIRefreshWhileConnectedTimer()
+        case .pendingUserDisconnect:
+            break
         case .disconnect:
             break
         }

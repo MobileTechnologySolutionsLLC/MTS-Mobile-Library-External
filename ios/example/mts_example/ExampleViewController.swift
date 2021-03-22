@@ -295,6 +295,8 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
             } else {
                 NSLog("\(#function) unexpected assignment of more than two connected beacons.")
             }
+        case .pendingUserDisconnect:
+            break
         case .disconnect:
             if mtsBeacon == mtsBeacon1 {
                 mtsBeacon1 = nil

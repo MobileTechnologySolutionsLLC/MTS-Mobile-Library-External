@@ -46,6 +46,7 @@ public class MTSService extends Service {
 
     public enum BluetoothConnectionEvent {
         connect,
+        pendingUserDisconnect,
         disconnect,
     }
 
@@ -479,7 +480,7 @@ public class MTSService extends Service {
             // the intent characteristic as iOS does.  Wait to allow the receiving device to receive.
             System.out.println("handleOnCharacteristicChanged userDisconnectedCharacteristicUUID");
             disconnectIfNeeded(mtsBeacon);
-            bluetoothConnectionEventOccurred(BluetoothConnectionEvent.disconnect, mtsBeacon);
+            bluetoothConnectionEventOccurred(BluetoothConnectionEvent.pendingUserDisconnect, mtsBeacon);
         }
         else if (sasSerialNumberCharacteristicUUID.getUuid().equals(characteristicUUID)) {
             String sasSerialNumber = "- - -";
@@ -1015,6 +1016,8 @@ public class MTSService extends Service {
         switch (bluetoothConnectionEvent) {
             case connect:
                 startConnectedRSSIReads();
+                break;
+            case pendingUserDisconnect:
                 break;
             case disconnect:
                 break;

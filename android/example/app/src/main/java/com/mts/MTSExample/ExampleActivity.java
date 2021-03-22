@@ -667,6 +667,8 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
                 Log.v("TAG", "unexpected assignment of more than two connected beacons.");
             }
             break;
+            case pendingUserDisconnect:
+                break;
             case disconnect:
             if (event.mtsBeacon == mtsBeacon1) {
                 Log.v("","updateDisplayBeacons disconnect mtsBeacon == mtsBeacon1;");
