@@ -282,11 +282,76 @@
             android:textColor="#444"
             />
 
+            <!--Auto-Disconnect Interval-->
+
+            <TextView android:id="@+id/auto_disconnect_header"
+                android:layout_below="@+id/rssi_threshold_footer"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="Auto-Disconnect Interval"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <TextView android:id="@+id/auto_disconnect_label_text_view"
+                android:layout_below="@+id/auto_disconnect_header"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="Interval"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <EditText android:id="@+id/auto_disconnect_timeout_edit_text"
+                android:layout_below="@+id/auto_disconnect_header"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:gravity="center|right"
+                android:layout_centerVertical="true"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:paddingRight="15dp"
+                android:textColor="#000"
+                android:text="0"
+                android:textSize="17dp"
+                android:hint="- - -"
+                android:visibility="visible"
+                android:inputType="numberSigned"
+                android:maxLength="4"
+                />
+
+            <TextView android:id="@+id/auto_disconnect_footer"
+                android:layout_below="@+id/auto_disconnect_timeout_edit_text"
+                android:layout_centerHorizontal="true"
+                android:layout_height="30dp"
+                android:layout_width="match_parent"
+                android:text="Enter zero to disconnect immediately at threshold."
+                android:textSize="14dp"
+                android:gravity="top|left"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
 
         <!--Scan Duration-->
 
         <TextView android:id="@+id/scan_duration_header"
-            android:layout_below="@+id/rssi_threshold_footer"
+            android:layout_below="@+id/auto_disconnect_footer"
             android:layout_centerHorizontal="true"
             android:layout_height="44dp"
             android:layout_width="match_parent"

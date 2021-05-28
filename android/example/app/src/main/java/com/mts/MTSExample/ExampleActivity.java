@@ -41,7 +41,6 @@ import com.mts.mts.MTSBluetoothConnectionEvent;
 import com.mts.mts.MTSBluetoothDiscoveryStateEvent;
 import com.mts.mts.MTSService;
 
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -71,6 +70,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     private Spinner txAttnSpinner;
     private EditText autoConnectThresholdEditText;
     private EditText autoDisconnectThresholdEditText;
+    private EditText autoDisconnectTimeoutEditText;
     private EditText scanDurationTimeoutEditText;
     private EditText cardDataEditText;
     private Button cardDataButton;
@@ -228,6 +228,9 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         String scanDurationTimeoutString = String.format("%d", mtsService.scanTimeoutInterval());
         scanDurationTimeoutEditText.setText(scanDurationTimeoutString);
 
+        String autoDisconnectIntervalString = String.format("%d", mtsService.autoDisconnectInterval());
+        autoDisconnectTimeoutEditText.setText(autoDisconnectIntervalString);
+
         String versionString = "MTS Example " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")";
         versionHeaderTextView.setText(versionString);
     }
@@ -319,6 +322,9 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         scanDurationTimeoutEditText = (EditText) findViewById(R.id.scan_duration_timeout_edit_text);
         scanDurationTimeoutEditText.addTextChangedListener(scanDurationTimeoutTextWatcher);
 
+        autoDisconnectTimeoutEditText = (EditText) findViewById(R.id.auto_disconnect_timeout_edit_text);
+        autoDisconnectTimeoutEditText.addTextChangedListener(autoDisconnectIntervalTextWatcher);
+
         cardDataEditText = (EditText) findViewById(R.id.player_id_edit_text);
         cardDataEditText.addTextChangedListener(cardDataEditTextWatcher);
         cardDataEditText.setOnFocusChangeListener(new View.OnFocusChangeListener()
@@ -395,6 +401,21 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         public void afterTextChanged(Editable s) {
             int rssi = tryParsingAsInt(s.toString());
             mtsService.setAutoDisconnectRSSIThreshold(rssi);
+        }
+    };
+
+    private TextWatcher autoDisconnectIntervalTextWatcher = new TextWatcher(){
+        @Override
+        public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+        @Override
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+        @Override
+        public void afterTextChanged(Editable s) {
+            Log.v("","autoDisconnectIntervalTextWatcher s: " + s);
+            int interval = tryParsingAsInt(s.toString());
+            mtsService.setAutoDisconnectInterval(interval);
         }
     };
 
@@ -561,8 +582,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             } else {
                 Log.v("","initialized mtsService...");
             }
-
-            mtsService.setAutoDisconnectInterval(3);
+            populateFormValues();
             updateInterface();
         }
 
