@@ -3,18 +3,23 @@ package com.mts.MTSExample;
 // Copyright © 2020 Mobile Technology Solutions, Inc. All rights reserved.
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.location.LocationManager;
 import android.media.MediaPlayer;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
@@ -114,10 +119,9 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             updateInterface();
         }
         requestPermissionsIfNeeded();
+        showLocationEnableRequestIfNeeded();
         pruneAssignedBeaconsIfNeeded();
         updateInterface();
-
-
     }
 
     @Override
@@ -491,6 +495,46 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             ActivityCompat.requestPermissions(this, allPermissions, kBluetoothPermissionsFlag);
         }
     }
+
+    @SuppressWarnings("deprecation")
+    public Boolean isLocationEnabled() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            LocationManager lm = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+            return lm.isLocationEnabled();
+        } else {
+            int mode = Settings.Secure.getInt(this.getContentResolver(), Settings.Secure.LOCATION_MODE,
+                    Settings.Secure.LOCATION_MODE_OFF);
+            return (mode != Settings.Secure.LOCATION_MODE_OFF);
+        }
+    }
+
+    private void showLocationEnableRequestIfNeeded() {
+        if (isLocationEnabled()) {
+            return;
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Please Enable Location");
+        builder.setMessage("Android disables Bluetooth scanning when Location is disabled.  Please enable Location to use Bluetooth features.");
+        builder.setCancelable(true);
+        builder.setNegativeButton(
+                "Dismiss",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        return;
+                    }
+                });
+        builder.setPositiveButton(
+                "Enable Location...",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                    }
+                });
+        AlertDialog alert = builder.create();
+        alert.show();
+    }
+
 
 
     // Service Interaction
