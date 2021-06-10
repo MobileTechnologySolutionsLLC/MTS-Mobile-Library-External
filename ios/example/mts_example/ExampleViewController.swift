@@ -268,7 +268,7 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
             writeExampleCardData(mtsBeacon: mtsBeacon)
             writeTxAttenuationLevel(mtsBeacon: mtsBeacon)
         }
-        else if .disconnect == bluetoothEvent {
+        else if [.disconnect, .disabled].contains(bluetoothEvent) {
             playDisconnectSound()
             lastWriteAtLabel?.textColor = .black
             lastWriteAtLabel?.text = "Last write: none since connect."
@@ -305,6 +305,9 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
             } else {
                 NSLog("\(#function) unexpected disconnect of an untracked beacon.")
             }
+        case .disabled:
+            mtsBeacon1 = nil
+            mtsBeacon2 = nil
         }
         tableView.reloadData()
     }

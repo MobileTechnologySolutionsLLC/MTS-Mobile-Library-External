@@ -16,6 +16,7 @@ public enum BluetoothConnectionEvent {
     case connect
     case pendingUserDisconnect
     case disconnect
+    case disabled
 }
 
 public protocol MTSManagerDelegate {
@@ -364,6 +365,8 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
             break
         case .disconnect:
             break
+        case .disabled:
+            break
         }
         invokeBluetoothBluetoothEventOccurred(bluetoothEvent: bluetoothEvent, mtsBeacon: mtsBeacon)
     }
@@ -478,6 +481,14 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         }
     }
     
+    /// Use this upon CBCentralManager state changes where didDisconnectPeripheral may not be called.
+    /// Orphaned beacons can otherwise remain if they are not cleaned up via normal state transitions.
+    private func clearBeaconState() {
+        discoveredBeacons = [MTSBeacon]()
+        connectedMTSBeacons = [MTSBeacon]()
+        bluetoothConnectionEventOccurred(bluetoothEvent: .disabled, mtsBeacon: nil)
+    }
+
     
     //MARK: CBCentralManagerDelegate
     
@@ -486,6 +497,7 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
         case .poweredOn:
             changeBluetoothDiscoveryState(newState: .inactive)
         default:
+            clearBeaconState()
             changeBluetoothDiscoveryState(newState: .notReady)
         }
     }
