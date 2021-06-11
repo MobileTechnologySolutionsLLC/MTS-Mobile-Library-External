@@ -612,7 +612,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onMessage(MTSBluetoothDiscoveryStateEvent event) {
-        Log.v("","changeBluetoothDiscoveryState event received in Example.");
+        Log.v("","changeBluetoothDiscoveryState event received in Example. oldState: " + event.oldState + "  newState: " + event.newState);
         updateInterface();
     }
 
@@ -637,6 +637,12 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             playDisconnectSound();
             lastWriteAtTextView.setText("Connect BLE to write card data.");
         }
+        else if (event.connectionEvent.equals(MTSService.BluetoothConnectionEvent.disabled)) {
+            mtsBeacon1 = null;
+            mtsBeacon2 = null;
+            lastWriteAtTextView.setText("Connect BLE to write card data.");
+        }
+
         updateInterface();
     }
 

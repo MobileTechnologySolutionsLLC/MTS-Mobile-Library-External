@@ -48,6 +48,7 @@ public class MTSService extends Service {
         connect,
         pendingUserDisconnect,
         disconnect,
+        disabled
     }
 
     public enum MTSEventType {
@@ -205,7 +206,7 @@ public class MTSService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         System.out.println("MTSService onStartCommand");
         super.onStartCommand(intent, flags, startId);
-        changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
+        updateDiscoveryStateBasedOnAdapterState();
         return START_NOT_STICKY;
     }
 
@@ -418,10 +419,28 @@ public class MTSService extends Service {
         @Override
         public void onBluetoothAdapterStateChanged(int state) {
             if(state == BluetoothAdapter.STATE_ON) {
-                changeBluetoothDiscoveryState(BluetoothDiscoveryState.scanning);
+                changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
+            } else {
+                clearBeaconState();
+                changeBluetoothDiscoveryState(BluetoothDiscoveryState.notReady);
             }
         }
     };
+
+    private void updateDiscoveryStateBasedOnAdapterState() {
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (BluetoothAdapter.STATE_ON == bluetoothAdapter.getState()) {
+            changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
+        } else {
+            changeBluetoothDiscoveryState(BluetoothDiscoveryState.notReady);
+        }
+    }
+
+    private void clearBeaconState() {
+        detectedBeacons = new ArrayList<MTSBeacon>();
+        connectedMTSBeacons = new ArrayList<MTSBeacon>();
+        bluetoothConnectionEventOccurred(BluetoothConnectionEvent.disabled, null);
+    }
 
     private MTSBeacon connectedMTSBeaconFromPeripheral(BluetoothPeripheral peripheral) {
         for (MTSBeacon beacon : connectedMTSBeacons) {
@@ -1012,14 +1031,19 @@ public class MTSService extends Service {
         if (0 == connectedMTSBeacons.size()) {
             stopConnectedRSSIReads();
         }
-        changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
         switch (bluetoothConnectionEvent) {
             case connect:
+                changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
                 startConnectedRSSIReads();
                 break;
             case pendingUserDisconnect:
+                changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
                 break;
             case disconnect:
+
+                break;
+            case disabled:
+                changeBluetoothDiscoveryState(BluetoothDiscoveryState.notReady);
                 break;
         }
         MTSBluetoothConnectionEvent messageEvent = new MTSBluetoothConnectionEvent(
