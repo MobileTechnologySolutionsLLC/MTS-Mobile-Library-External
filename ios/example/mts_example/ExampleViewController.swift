@@ -269,7 +269,6 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
             writeTxAttenuationLevel(mtsBeacon: mtsBeacon)
         }
         else if [.disconnect, .disabled].contains(bluetoothEvent) {
-            playDisconnectSound()
             lastWriteAtLabel?.textColor = .black
             lastWriteAtLabel?.text = "Last write: none since connect."
         }
