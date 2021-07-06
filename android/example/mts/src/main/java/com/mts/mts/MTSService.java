@@ -429,6 +429,9 @@ public class MTSService extends Service {
 
     private void updateDiscoveryStateBasedOnAdapterState() {
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (null == bluetoothAdapter) {
+            return;
+        }
         if (BluetoothAdapter.STATE_ON == bluetoothAdapter.getState()) {
             changeBluetoothDiscoveryState(BluetoothDiscoveryState.inactive);
         } else {
