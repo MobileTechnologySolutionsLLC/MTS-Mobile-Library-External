@@ -532,6 +532,13 @@ public class BluetoothCentral {
      */
     public void stopScan() {
         cancelTimeoutTimer();
+
+        // The following isBleReady() check is a blind fix attempt for a non-repro crash upon stop scan.
+        // "Fatal Exception: java.lang.IllegalStateException: BT Adapter is not turned ON"
+        // Forced repro attempts which use OS controls to disable BLE are handled as expected. So the
+        // case may occur upon unexpected OS BLE interaction.
+        if (!isBleReady()) return;
+
         if (isScanning()) {
             bluetoothScanner.stopScan(currentCallback);
             //Timber.i("scan stopped");
