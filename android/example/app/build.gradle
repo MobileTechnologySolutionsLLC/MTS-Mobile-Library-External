@@ -1,13 +1,12 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 30
-    buildToolsVersion "26.0.2"
+    compileSdkVersion 31
     defaultConfig {
         applicationId "com.mts.example"
         minSdkVersion 24
-        targetSdkVersion 30
-        versionCode 41
+        targetSdkVersion 31
+        versionCode 42
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -17,23 +16,20 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-//    task wrapper(type: Wrapper) {
-//        gradleVersion = '4.1.2'
-//    }
 }
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
-    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
     //noinspection GradleCompatible
-    compile 'com.android.support:appcompat-v7:26.1.0'
-    testCompile 'junit:junit:4.12'
+    implementation 'com.android.support:appcompat-v7:26.1.0'
+    testImplementation 'junit:junit:4.12'
 
     // MIT license https://github.com/karlotoy/perfectTune/blob/master/LICENSE.txt
-    compile 'com.github.karlotoy:perfectTune:1.0.2'
+    implementation 'com.github.karlotoy:perfectTune:1.0.2'
 
-    compile project(':mts')
+    implementation project(':mts')
     implementation 'org.greenrobot:eventbus:3.2.0'
 }

@@ -120,25 +120,91 @@
                 android:visibility="visible"
                 />
 
-        <TextView android:id="@+id/connection_status_footer"
-            android:layout_below="@+id/connection_status_text_view2"
-            android:layout_centerHorizontal="true"
-            android:layout_height="30dp"
-            android:layout_width="match_parent"
-            android:text="States: [NotReady|Inactive|Scanning|Connected]"
-            android:textSize="14dp"
-            android:gravity="top|left"
-            android:paddingLeft="15dp"
-            android:paddingTop="5dp"
-            android:layout_alignParentLeft="true"
-            android:background="#DDD"
-            android:textColor="#444"
-            />
+            <TextView
+                android:id="@+id/connection_status_footer"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:layout_below="@+id/connection_status_text_view2"
+                android:layout_alignParentLeft="true"
+                android:layout_centerHorizontal="true"
+                android:background="#DDD"
+                android:gravity="top|left"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:text="States: [NotReady|Inactive|Scanning|Connected]"
+                android:textColor="#444"
+                android:textSize="14dp" />
 
-            <!--Tx Attenuation-->
+
+            <!--Connected RSSI -->
+
+            <TextView android:id="@+id/connected_rssi_header"
+                android:layout_below="@+id/connection_status_footer"
+                android:layout_centerHorizontal="true"
+                android:layout_height="44dp"
+                android:layout_width="match_parent"
+                android:text="Connected RSSI"
+                android:textSize="14dp"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+            <TextView android:id="@+id/connected_rssi_text_view1"
+                android:layout_below="@+id/connected_rssi_header"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <TextView android:id="@+id/connected_rssi_text_view2"
+                android:layout_below="@+id/connected_rssi_text_view1"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentRight="true"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_centerHorizontal="true"
+                android:background="@android:color/transparent"
+                android:textColor="#000"
+                android:text="- - -"
+                android:textSize="17dp"
+                android:gravity="left|center"
+                android:paddingLeft="15dp"
+                android:visibility="visible"
+                />
+
+            <TextView android:id="@+id/connected_rssi_footer"
+                android:layout_below="@+id/connected_rssi_text_view2"
+                android:layout_centerHorizontal="true"
+                android:layout_height="wrap_content"
+                android:layout_width="match_parent"
+                android:text="Only updates while a BLE device is connected."
+                android:textSize="14dp"
+                android:gravity="top|left"
+                android:paddingLeft="15dp"
+                android:paddingTop="5dp"
+                android:layout_alignParentLeft="true"
+                android:background="#DDD"
+                android:textColor="#444"
+                />
+
+
+        <!--Tx Attenuation-->
 
         <TextView android:id="@+id/tx_attn_header"
-            android:layout_below="@+id/connection_status_footer"
+            android:layout_below="@+id/connected_rssi_footer"
             android:layout_centerHorizontal="true"
             android:layout_height="44dp"
             android:layout_width="match_parent"
@@ -175,22 +241,63 @@
             android:textColor="#444"
             />
 
-        <!--RSSI Thresholds-->
+        <!--Active Service UUID-->
 
-        <TextView android:id="@+id/rssi_threshold_header"
-            android:layout_below="@+id/tx_attn_footer"
-            android:layout_centerHorizontal="true"
-            android:layout_height="44dp"
+            <TextView
+                android:id="@+id/active_service_uuid_header"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_below="@+id/tx_attn_footer"
+                android:layout_alignParentLeft="true"
+                android:layout_centerHorizontal="true"
+                android:background="#DDD"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:text="Active Service UUID"
+                android:textColor="#444"
+                android:textSize="14dp" />
+
+        <Spinner
+            android:id="@+id/active_service_uuid_spinner"
+            android:layout_below="@+id/active_service_uuid_header"
             android:layout_width="match_parent"
-            android:text="RSSI Thresholds"
+            android:layout_height="wrap_content"
+            android:background="@android:drawable/btn_dropdown"
+            android:spinnerMode="dropdown"/>
+
+        <TextView android:id="@+id/active_service_uuid_footer"
+            android:layout_below="@+id/active_service_uuid_spinner"
+            android:layout_centerHorizontal="true"
+            android:layout_height="30dp"
+            android:layout_width="match_parent"
+            android:text=""
             android:textSize="14dp"
-            android:gravity="bottom|left"
+            android:gravity="top|left"
             android:paddingLeft="15dp"
-            android:paddingBottom="5dp"
+            android:paddingTop="5dp"
             android:layout_alignParentLeft="true"
             android:background="#DDD"
             android:textColor="#444"
             />
+
+
+            <!--RSSI Thresholds-->
+
+            <TextView
+                android:id="@+id/rssi_threshold_header"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_below="@+id/active_service_uuid_footer"
+                android:layout_alignParentLeft="true"
+                android:layout_centerHorizontal="true"
+                android:background="#DDD"
+                android:gravity="bottom|left"
+                android:paddingLeft="15dp"
+                android:paddingBottom="5dp"
+                android:text="RSSI Thresholds"
+                android:textColor="#444"
+                android:textSize="14dp" />
 
         <TextView android:id="@+id/autoconnect_label_text_view"
             android:layout_below="@+id/rssi_threshold_header"
@@ -347,6 +454,7 @@
                 android:background="#DDD"
                 android:textColor="#444"
                 />
+
 
         <!--Scan Duration-->
 
@@ -553,73 +661,10 @@
             android:textColor="#444"
             />
 
-
-            <TextView android:id="@+id/connected_rssi_header"
-                android:layout_below="@+id/terminal_id_footer"
-                android:layout_centerHorizontal="true"
-                android:layout_height="44dp"
-                android:layout_width="match_parent"
-                android:text="Connected RSSI"
-                android:textSize="14dp"
-                android:gravity="bottom|left"
-                android:paddingLeft="15dp"
-                android:paddingBottom="5dp"
-                android:layout_alignParentLeft="true"
-                android:background="#DDD"
-                android:textColor="#444"
-                />
-
-            <TextView android:id="@+id/connected_rssi_text_view1"
-                android:layout_below="@+id/connected_rssi_header"
-                android:layout_alignParentLeft="true"
-                android:layout_alignParentRight="true"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_centerHorizontal="true"
-                android:background="@android:color/transparent"
-                android:textColor="#000"
-                android:text="- - -"
-                android:textSize="17dp"
-                android:gravity="left|center"
-                android:paddingLeft="15dp"
-                android:visibility="visible"
-                />
-
-            <TextView android:id="@+id/connected_rssi_text_view2"
-                android:layout_below="@+id/connected_rssi_text_view1"
-                android:layout_alignParentLeft="true"
-                android:layout_alignParentRight="true"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_centerHorizontal="true"
-                android:background="@android:color/transparent"
-                android:textColor="#000"
-                android:text="- - -"
-                android:textSize="17dp"
-                android:gravity="left|center"
-                android:paddingLeft="15dp"
-                android:visibility="visible"
-                />
-
-            <TextView android:id="@+id/connected_rssi_footer"
-                android:layout_below="@+id/connected_rssi_text_view2"
-                android:layout_centerHorizontal="true"
-                android:layout_height="wrap_content"
-                android:layout_width="match_parent"
-                android:text="Only updates while a BLE device is connected."
-                android:textSize="14dp"
-                android:gravity="top|left"
-                android:paddingLeft="15dp"
-                android:paddingTop="5dp"
-                android:layout_alignParentLeft="true"
-                android:background="#DDD"
-                android:textColor="#444"
-                />
-
             <!--SAS Serial Number-->
 
             <TextView android:id="@+id/sas_serial_number_header"
-                android:layout_below="@+id/connected_rssi_footer"
+                android:layout_below="@+id/terminal_id_footer"
                 android:layout_centerHorizontal="true"
                 android:layout_height="44dp"
                 android:layout_width="match_parent"

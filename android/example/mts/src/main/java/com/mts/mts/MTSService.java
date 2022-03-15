@@ -263,7 +263,7 @@ public class MTSService extends Service {
                 Log.v("", "Characteristic discovery is complete, but no matching MTSBeacon in connectedMTSBeacons.");
             }
         } else {
-            Log.v("","requiredCharacteristics.size(): " + requiredCharacteristics.size());
+            Log.v("","requiredCharacteristics.size(): " + requiredCharacteristics.size() + " list: " + requiredCharacteristics.toString());
             if (requiredCharacteristics.size() <= 2) {
                 Log.v("","requiredCharacteristics: " + requiredCharacteristics.toString());
             }
@@ -372,8 +372,8 @@ public class MTSService extends Service {
             requiredCharacteristics = new ArrayList<ParcelUuid>(Arrays.asList(
                     cardDataCharacteristicUUID,
                     terminalKindCharacteristicUUID,
-                    userDisconnectedCharacteristicUUID,
-                    txAttenLevelCharacteristicUUID
+                    userDisconnectedCharacteristicUUID
+                    // N.B. requiring txAttenuationLevel breaks compatibility with some Resorts fw instances.
             ));
             peripheral.requestMtu(256);
         }

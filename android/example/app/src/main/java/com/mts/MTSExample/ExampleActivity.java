@@ -44,10 +44,13 @@ import com.mts.mts.MTSService;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
 import static android.text.TextUtils.isEmpty;
 import static com.mts.mts.MTSService.BluetoothConnectionEvent.connect;
+
+import static java.sql.DriverManager.println;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -68,6 +71,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     private Button connectionStateButton2;
     private TextView connectionStatusTextView2;
     private Spinner txAttnSpinner;
+    private Spinner activeServiceUuidSpinner;
     private EditText autoConnectThresholdEditText;
     private EditText autoDisconnectThresholdEditText;
     private EditText autoDisconnectTimeoutEditText;
@@ -91,8 +95,13 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     private MediaPlayer connectMediaPlayer;
     private MediaPlayer disconnectMediaPlayer;
 
-    // This serviceUUID is implementation-specific, i.e. MTS will provide it to you.
-    UUID kMTSServiceUUID = UUID.fromString("6289B88C-E219-45AA-868E-92286187DEDF");
+    // This serviceUUID is implementation-specific, i.e. MTS will provide it to you. Examples here.
+    static String kMTSPennServiceUUID    = "6289B88C-E219-45AA-868E-92286187DEDF";
+    static String kMTSResortsServiceUUID = "C1FB6CDA-3F15-4BC0-8A46-8E9C341065F8";
+    private ServiceUUID[] serviceUuidOptions = {
+            new ServiceUUID("Penn", kMTSPennServiceUUID),
+            new ServiceUUID("Resorts", kMTSResortsServiceUUID)
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -191,6 +200,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
         if (null == mtsBeacon1) {
             updateStatusTextViewForState(connectionStatusTextView1, connectionStateButton1);
+            connectedRSSITextView1.setText("- - -");
         } else {
             connectionStatusTextView1.setText("Connected");
             connectionStateButton1.setText("Disconnect");
@@ -198,6 +208,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
         if (null == mtsBeacon2) {
             updateStatusTextViewForState(connectionStatusTextView2, connectionStateButton2);
+            connectedRSSITextView2.setText("- - -");
         } else {
             connectionStatusTextView2.setText("Connected");
             connectionStateButton2.setText("Disconnect");
@@ -306,6 +317,19 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         });
         connectionStatusTextView2 = (TextView) findViewById(R.id.connection_status_text_view2);
 
+        activeServiceUuidSpinner = (Spinner) findViewById(R.id.active_service_uuid_spinner);
+        ArrayAdapter<ServiceUUID> serviceUuidAdapter = new ArrayAdapter<ServiceUUID>(this, android.R.layout.simple_spinner_dropdown_item, serviceUuidOptions);
+        activeServiceUuidSpinner.setAdapter(serviceUuidAdapter);
+        int spinnerIndex = 0;
+        for(int i = 0; i<serviceUuidOptions.length; i++){
+            if(serviceUuidOptions[i].uuidString.equals(activeServiceUUIDString())){
+                spinnerIndex = i;
+            }
+        }
+        activeServiceUuidSpinner.setSelected(false);
+        activeServiceUuidSpinner.setSelection(spinnerIndex, false);
+        activeServiceUuidSpinner.setOnItemSelectedListener(activeServiceUuidSpinnerOnItemSelectedListener);
+
         txAttnSpinner = (Spinner) findViewById(R.id.tx_attn_spinner);
         String[] txAttenLevelOptions = getNames(MTSService.TxAttenuationLevel.class);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, txAttenLevelOptions);
@@ -361,10 +385,23 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         populateFormValues();
     }
 
+    AdapterView.OnItemSelectedListener activeServiceUuidSpinnerOnItemSelectedListener = new AdapterView.OnItemSelectedListener() {
+        @Override
+        public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+            String uuidString = serviceUuidOptions[position].uuidString;
+            Log.v("","onItemSelected setActiveServiceUUIDString...");
+            setActiveServiceUUIDString(uuidString);
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parentView) {}
+    };
+
     AdapterView.OnItemSelectedListener txAttnSpinnerOnItemSelectedListener = new AdapterView.OnItemSelectedListener() {
         @Override
         public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
             MTSService.TxAttenuationLevel level = MTSService.TxAttenuationLevel.values()[position];
+            Log.v("","onItemSelected setLastTxAttenuationLevel...");
             setLastTxAttenuationLevel(position);
         }
 
@@ -494,7 +531,9 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     private boolean hasPermissions() {
         int granted = PackageManager.PERMISSION_GRANTED;
         return (granted == ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) &&
-                granted == ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                granted == ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) &&
+                granted == ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) &&
+                granted == ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
         );
     }
 
@@ -506,7 +545,9 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
         String[] allPermissions = new String[]{
                 Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT
         };
 
         if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_COARSE_LOCATION)) {
@@ -576,7 +617,7 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder service) {
             mtsService = ((MTSService.LocalBinder) service).getService();
-            if (!mtsService.initialize(getApplicationContext(), kMTSServiceUUID)) {
+            if (!mtsService.initialize(getApplicationContext(), activeServiceUUID())) {
                 Log.e(TAG, "Failed to initialize MTSService");
                 finish();
             } else {
@@ -798,4 +839,43 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
         Log.v("","setLastTxAttenuationLevel: " + enumPosition);
     }
 
+    private static String kActiveServiceUUIDPreferenceKey = "kActiveServiceUUIDPreferenceKey";
+    private static String kActiveServiceUUIDDefault = kMTSPennServiceUUID;
+
+    String activeServiceUUIDString() {
+        SharedPreferences sharedPreferences = this.getApplicationContext().getSharedPreferences(
+                kSharedPreferenceKey, Context.MODE_PRIVATE);
+        String value = sharedPreferences.getString(kActiveServiceUUIDPreferenceKey, kActiveServiceUUIDDefault);
+        return value;
+    }
+
+    void setActiveServiceUUIDString(String serviceUUIDString) {
+        SharedPreferences sharedPreferences =
+                this.getApplicationContext().getSharedPreferences(kSharedPreferenceKey, Context.MODE_PRIVATE);
+        if (isEmpty(serviceUUIDString)) {
+            cardDataString = kActiveServiceUUIDDefault;
+        }
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(kActiveServiceUUIDPreferenceKey, serviceUUIDString);
+        editor.commit();
+        Log.v("","setActiveServiceUUIDString: " + activeServiceUUIDString());
+    }
+
+    UUID activeServiceUUID() {
+        return UUID.fromString(activeServiceUUIDString());
+    }
+
+}
+
+class ServiceUUID {
+    String name;
+    String uuidString;
+    public ServiceUUID(String name, String uuidString)  {
+        this.name = name;
+        this.uuidString = uuidString;
+    }
+    @Override
+    public String toString() {
+        return this.name;
+    }
 }
