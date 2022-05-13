@@ -391,6 +391,9 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             String uuidString = serviceUuidOptions[position].uuidString;
             Log.v("","onItemSelected setActiveServiceUUIDString...");
             setActiveServiceUUIDString(uuidString);
+            if(null != mtsService) {
+                mtsService.mtsServiceUUID = activeServiceUUID();
+            }
         }
 
         @Override

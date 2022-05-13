@@ -86,7 +86,7 @@ public class MTSService extends Service {
 
     public int cardDataCharacterCountMax = 195; // 195 + automatic null termination, so 196 total accepted by the peripheral.
     private int kRSSIUnavailableValue = 127;
-    private UUID mtsServiceUUID = null; // This must be assigned upon service initialization.
+    public  UUID mtsServiceUUID = null;
     private UUID machineInfoServiceUUID = UUID.fromString("C83FE52E-0AB5-49D9-9817-98982B4C48A3");
     private ParcelUuid cardDataCharacteristicUUID = ParcelUuid.fromString("60D11359-FEB2-411D-A430-CA6167052BD6");
     private ParcelUuid terminalKindCharacteristicUUID = ParcelUuid.fromString("D308DFDE-9F06-4A73-A2C7-EB952E40A184");
@@ -460,6 +460,7 @@ public class MTSService extends Service {
 
         if (null == mtsBeacon) {
             Log.v(TAG, "handleOnCharacteristicChanged: null == mtsBeacon, no match in connectedMTSBeaconFromPeripheral.");
+            return;
         }
 
         byte[] characteristicBytes = characteristic.getValue();
