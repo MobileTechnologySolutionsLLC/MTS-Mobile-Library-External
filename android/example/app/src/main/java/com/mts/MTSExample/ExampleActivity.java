@@ -391,6 +391,12 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             setActiveServiceUUIDString(uuidString);
             if(null != mtsService) {
                 mtsService.mtsServiceUUID = activeServiceUUID();
+
+                // If the operator changes the service UUID while scanning, restart the scan to pick up the new UUID.
+                if (mtsService.bluetoothDiscoveryState == MTSService.BluetoothDiscoveryState.scanning) {
+                    mtsService.stopScanning();
+                    mtsService.startScanning();
+                }
             }
         }
 
