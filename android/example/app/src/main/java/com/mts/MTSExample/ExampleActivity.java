@@ -127,7 +127,6 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             mtsService.detectedBeacons.clear();
             updateInterface();
         }
-        requestPermissionsIfNeeded();
         showLocationEnableRequestIfNeeded();
         pruneAssignedBeaconsIfNeeded();
         updateInterface();
@@ -151,7 +150,6 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     public void onPause() {
         System.out.println("ExampleActivity onPause");
         super.onPause();
-
     }
 
     @Override
@@ -497,6 +495,8 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
     }
 
     public void connectionStatusCellTap(MTSBeacon mtsBeacon) {
+
+        requestPermissionsIfNeeded();
 
         if (null == mtsService) {
             Log.v(TAG, "connectionStatusCellTap: mtsService was null on connectionStatusCell1Tap.");
