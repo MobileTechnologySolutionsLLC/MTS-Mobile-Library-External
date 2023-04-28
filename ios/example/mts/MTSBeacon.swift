@@ -55,7 +55,8 @@ public class MTSBeacon {
     public var advertisementBluetoothDeviceAddress: Data?
     public var terminalKind: TerminalKind = .unknown
     private static let kCompanyIdentifier = Data([0x00, 0xA0, 0x50])
-    public var mfgIdentifier: Data?
+    /// Uniquely identifies this MTSBeacon across iOS and Android instances.
+    public var mtsIdentifier: Data?
     /// Used by the MTSManager to handle RSSI threshold disconnect evaluation for this beacon
     public var autoDisconnectTimer = Timer()
     public var isCharacteristicDiscoveryComplete: Bool = false
@@ -76,22 +77,16 @@ public class MTSBeacon {
         lastDiscoveredAt = now
         filteredRSSI = calculateFilteredRSSI(newRSSI: r)
         name = advertisementData?[CBAdvertisementDataLocalNameKey] as? String ?? MTSConstants.noValuePlaceholder
-        manufacturerData = advertisementData?[CBAdvertisementDataManufacturerDataKey] as? Data        
+        manufacturerData = advertisementData?[CBAdvertisementDataManufacturerDataKey] as? Data
         
         if let manufacturerData = manufacturerData, 8 == manufacturerData.count {
             var index = manufacturerData.startIndex
             index = index.advanced(by: MemoryLayout<UInt8>.size)
             let subData = manufacturerData.subdata(in: index..<index.advanced(by: 6))
-            mfgIdentifier = subData
+            mtsIdentifier = subData
         } else {
-            NSLog("\(#function) manufacturerData mismatch: \(String(describing: manufacturerData?.hex))")
+            NSLog("\(#function) manufacturerData expected count 8, actual: \(String(describing: manufacturerData?.count)) Bytes: \(String(describing: manufacturerData?.hex))")
         }
-        
-        // Note that there is an undocumented advertisementData key kCBAdvDataLeBluetoothDeviceAddress which is sometimes populated in didDiscover callbacks.
-        // It doesn't reliably contain the BLE address value. It isn't documented, so not clear that it is meant to be reliable / consumed.
-        // e.g. advertisementBluetoothDeviceAddress: Optional("002969DD964208")
-        // https://developer.apple.com/forums/thread/127280
-        advertisementBluetoothDeviceAddress = advertisementData?["kCBAdvDataLeBluetoothDeviceAddress"] as? Data
     }
 
     public func updateOnConnectedRSSIReceipt(rssi r: Int) {

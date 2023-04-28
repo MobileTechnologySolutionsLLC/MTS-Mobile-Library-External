@@ -21,7 +21,7 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     @IBOutlet var connectedRSSILabel1: UILabel?
     @IBOutlet var connectedRSSILabel2: UILabel?
     @IBOutlet var connectedTerminalPeripheralIdentifier: UILabel?
-    @IBOutlet var connectedTerminalMfgDataLabel: UILabel?
+    @IBOutlet var connectedTerminalMtsIdentifierLabel: UILabel?
     @IBOutlet var sasSerialNumberLabel: UILabel?
     @IBOutlet var locationLabel: UILabel?
     @IBOutlet var assetNumberLabel: UILabel?
@@ -74,12 +74,10 @@ class ExampleViewController: UITableViewController, MTSManagerDelegate, UITextFi
     }
     
     func updateConnectedTerminalIdentifiers() {
-        if let beacon = mtsBeacon1 {
-            connectedTerminalPeripheralIdentifier?.text = "ID: \(beacon.peripheral.identifier.uuidString)"
-            connectedTerminalMfgDataLabel?.text = "MFG: \(beacon.manufacturerData?.hex ?? MTSConstants.noValuePlaceholder)"
+        if let identifier = mtsBeacon1?.mtsIdentifier {
+            connectedTerminalMtsIdentifierLabel?.text = "MTS ID: \(identifier.hex)"
         } else {
-            connectedTerminalPeripheralIdentifier?.text = MTSConstants.noValuePlaceholder
-            connectedTerminalMfgDataLabel?.text = MTSConstants.noValuePlaceholder
+            connectedTerminalMtsIdentifierLabel?.text = MTSConstants.noValuePlaceholder
         }
     }
     

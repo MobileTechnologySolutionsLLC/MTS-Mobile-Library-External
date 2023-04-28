@@ -426,6 +426,13 @@ public class MTSManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegat
             logIfEnabled("\(#function) exited early because thresholdAutoConnectEnabled was false")
             return
         }
+        // This can happen normally on the first discovery callback prior to scan response
+        // which includes the source data for mtsIdentifier.  Ignore this unless it happens
+        // persistently over a sequence of discovery callbacks for the same beacon + session.
+        guard nil != mtsBeacon.mtsIdentifier else {
+            logIfEnabled("\(#function) exited early because RSSI threshold was crossed before mtsIdentifier was assigned.")
+            return
+        }
         connect(mtsBeacon: mtsBeacon)
     }
     

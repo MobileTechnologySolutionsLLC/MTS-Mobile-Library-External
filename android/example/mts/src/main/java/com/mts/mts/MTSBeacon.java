@@ -3,13 +3,21 @@ package com.mts.mts;
 // Copyright © 2020 Mobile Technology Solutions, Inc. All rights reserved.
 
 
+import android.annotation.SuppressLint;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
+import android.util.SparseArray;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+
+import static android.content.ContentValues.TAG;
 
 public class MTSBeacon {
 
@@ -25,7 +33,9 @@ public class MTSBeacon {
     public long lastDiscoveredAt;
     public long elapsedSinceLastDiscovered;
     public int filteredRSSI;
-    public String mfgIdentifier;
+
+    /// Uniquely identifies this MTSBeacon across Android and iOS instances.
+    public String mtsIdentifier;
     private Context context;
     // Used by the MTSManager to handle RSSI threshold disconnect evaluation for this beacon
     public Boolean isCharacteristicDiscoveryComplete = false;
@@ -33,6 +43,7 @@ public class MTSBeacon {
     MTSBeacon(BluetoothPeripheral peripheral, ScanResult scanResult, Context c) {
         this.peripheral = peripheral;
         scanRecordBytes = scanResult.getScanRecord().getBytes();
+
         context = c;
         if (null == scanRecordBytes) {
             Log.v("","MTSBeacon init returned early due to null == scanRecordBytes.");
@@ -66,8 +77,9 @@ public class MTSBeacon {
         filteredRSSI = calculateFilteredRSSI(rssi);
     }
 
+    @SuppressLint("MissingPermission")
     private void commonScanResultAssignments(ScanResult scanResult) {
-//        device = scanResult.getDevice();
+
         name = scanResult.getDevice().getName();
 
         if (name== null) {
@@ -75,16 +87,21 @@ public class MTSBeacon {
         }
         rssi = scanResult.getRssi();
         address =  scanResult.getDevice().getAddress();
-        //                                       FFFF00A050DD6929 // match the iOS value for CBAdvertisementDataManufacturerDataKey
-        // 0201060E09477265656B746F776E20424C4509FFFFFF00A050DD692900000000000000000000000000000000000000000000000000000000000000000000
-        byte[] b = scanRecordBytes;
-        int lengthToEndOfMfgData = 29;
-        if (b.length < lengthToEndOfMfgData) {
+
+        // Duplicate the six-byte range iOS uses from CBAdvertisementDataManufacturerDataKey:
+        // * second byte of mfg data key as hex string concatenated with
+        // * manufacturerSpecificData-minus-last-byte as hex string.
+        SparseArray<byte[]> manufacturerSpecificData = scanResult.getScanRecord().getManufacturerSpecificData();
+        if (0 == manufacturerSpecificData.size()) {
             return;
         }
-        byte[] manufacturerData = Arrays.copyOfRange(b, 11, 17);
-        mfgIdentifier = bytesToHex(manufacturerData);
-        Log.v("", "mfgIdentifier: " + mfgIdentifier);
+        int key = manufacturerSpecificData.keyAt(0);
+        byte[] manufacturerSpecificDataBytes = manufacturerSpecificData.valueAt(0);
+        int shiftedKey = key >> Byte.SIZE;
+        String keyByteString =  String.format("%02X", shiftedKey);
+        byte[] truncated = Arrays.copyOf(manufacturerSpecificDataBytes, manufacturerSpecificDataBytes.length-1);
+        String payloadString =  bytesToHex(truncated);
+        mtsIdentifier = keyByteString + payloadString;
     }
 
     public void updateOnConnectedRSSIReceipt(int r) {

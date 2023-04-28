@@ -44,13 +44,10 @@ import com.mts.mts.MTSService;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.Map;
 import java.util.UUID;
 
 import static android.text.TextUtils.isEmpty;
 import static com.mts.mts.MTSService.BluetoothConnectionEvent.connect;
-
-import static java.sql.DriverManager.println;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -67,7 +64,11 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
 
     private TextView versionHeaderTextView;
     private Button connectionStateButton1;
+
+
     private TextView connectionStatusTextView1;
+
+    private TextView connected_terminal_mts_identifier_text_view;
     private Button connectionStateButton2;
     private TextView connectionStatusTextView2;
     private Spinner txAttnSpinner;
@@ -220,6 +221,15 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             connectionStateButton2.setVisibility(View.VISIBLE);
         }
 
+        updateConnectedTerminalIdentifiers();
+    }
+
+    private void updateConnectedTerminalIdentifiers() {
+        if (null == mtsBeacon1) {
+            connected_terminal_mts_identifier_text_view.setText("- - -");
+        } else {
+            connected_terminal_mts_identifier_text_view.setText("MTS ID: " + mtsBeacon1.mtsIdentifier);
+        }
     }
 
     private void populateFormValues() {
@@ -314,6 +324,8 @@ public class ExampleActivity extends AppCompatActivity implements ActivityCompat
             }
         });
         connectionStatusTextView2 = (TextView) findViewById(R.id.connection_status_text_view2);
+
+        connected_terminal_mts_identifier_text_view = (TextView) findViewById(R.id.connected_terminal_mts_identifier_text_view);
 
         activeServiceUuidSpinner = (Spinner) findViewById(R.id.active_service_uuid_spinner);
         ArrayAdapter<ServiceUUID> serviceUuidAdapter = new ArrayAdapter<ServiceUUID>(this, android.R.layout.simple_spinner_dropdown_item, serviceUuidOptions);
