@@ -689,7 +689,7 @@ public class MTSService extends Service {
         System.out.println("validatedCardData truncatedCardDataString: " + truncatedCardDataString);
         byte[] cardDataBytes = truncatedCardDataString.getBytes(Charset.forName("UTF-8"));
         System.out.println("validatedCardData cardDataBytes: " + bytesToHex(cardDataBytes));
-        byte[] nullBytes = new byte[0];
+        byte[] nullBytes = new byte[] { 0x00 };
         byte[] terminatedBytes = new byte[cardDataBytes.length + nullBytes.length];
         System.arraycopy(cardDataBytes, 0, terminatedBytes, 0, cardDataBytes.length);
         System.arraycopy(nullBytes, 0, terminatedBytes, cardDataBytes.length, nullBytes.length);
